@@ -121,9 +121,9 @@ func (m *Manager) Start() {
 	}
 }
 
-// Shutdown shutdowns all components
+// Shutdown shutdowns all components in reverse order
 func (m *Manager) Shutdown() {
-	for i := range m.components {
+	for i := len(m.components) - 1; i >= 0; i-- {
 		m.components[i].Shutdown()
 	}
 }
