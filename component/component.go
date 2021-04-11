@@ -13,8 +13,8 @@ type Component interface {
 	Init() error
 	// Start starts the component
 	Start()
-	// Destory destorys the component
-	Destory()
+	// Shutdown shutdwons the component
+	Shutdown()
 	// Update updates the component per frame
 	Update(time.Time, time.Duration)
 	// Logger returns a logger interface
@@ -42,15 +42,18 @@ func (com *BaseComponent) Name() string {
 
 // Init implements Component Init method
 func (com *BaseComponent) Init() error {
+	com.Logger().Info("initializing component")
 	return nil
 }
 
 // Start implements Component Start method
 func (com *BaseComponent) Start() {
+	com.Logger().Info("starting component")
 }
 
-// Destory implements Component Destory method
-func (com *BaseComponent) Destory() {
+// Shutdown implements Component Shutdown method
+func (com *BaseComponent) Shutdown() {
+	com.Logger().Info("shutting down component")
 }
 
 // Update implements Component Update method
@@ -119,9 +122,9 @@ func (m *Manager) Start() {
 }
 
 // Shutdown shutdowns all components
-func (m *Manager) Destory() {
+func (m *Manager) Shutdown() {
 	for i := range m.components {
-		m.components[i].Destory()
+		m.components[i].Shutdown()
 	}
 }
 

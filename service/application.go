@@ -53,15 +53,18 @@ func exec(app Application) error {
 	signal.Register(os.Interrupt, func(os.Signal) bool {
 		return true
 	})
+	println("Waiting signal INT")
 	signal.Listen()
+	println("Received signal INT")
 
 	return app.Shutdown()
 }
 
 // BaseApplication implments Application
 type BaseApplication struct {
-	id   int
-	name string
+	id           int
+	name         string
+	configurator config.Configurator
 }
 
 // NewBaseApplication creates a BaseApplication
@@ -70,10 +73,19 @@ func NewBaseApplication() *BaseApplication {
 }
 
 // SetID sets id of application
-func (app *BaseApplication) SetID(id int) { app.id = id }
+func (app *BaseApplication) SetID(id int) {
+	app.id = id
+}
 
 // SetName sets name of application
-func (app *BaseApplication) SetName(name string) { app.name = name }
+func (app *BaseApplication) SetName(name string) {
+	app.name = name
+}
+
+// SetConfigurator sets configurator of application
+func (app *BaseApplication) SetConfigurator(configurator config.Configurator) {
+	app.configurator = configurator
+}
 
 // ID implements Application ID method
 func (app *BaseApplication) ID() int {
@@ -83,6 +95,11 @@ func (app *BaseApplication) ID() int {
 // Name implements Application Name method
 func (app *BaseApplication) Name() string {
 	return app.name
+}
+
+// Configurator implements Application Configurator method
+func (app *BaseApplication) Configurator() config.Configurator {
+	return app.configurator
 }
 
 // Init implements Application Init method
