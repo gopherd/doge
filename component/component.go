@@ -3,6 +3,9 @@ package component
 import (
 	"reflect"
 	"time"
+
+	"github.com/gopherd/doge/build"
+	"github.com/gopherd/doge/log"
 )
 
 // Component represents a generic logic component
@@ -18,20 +21,20 @@ type Component interface {
 	// Update updates the component per frame
 	Update(time.Time, time.Duration)
 	// Logger returns a logger interface
-	Logger() Logger
+	Logger() log.Logger
 }
 
 // BaseComponent implements the Component interface{}
 type BaseComponent struct {
 	name   string
-	logger Logger
+	logger log.Logger
 }
 
 // NewBaseComponent creates a BaseComponent
 func NewBaseComponent(name string) *BaseComponent {
 	return &BaseComponent{
 		name:   name,
-		logger: logger(name),
+		logger: log.NewLogger("(" + build.Name() + "." + name + ") "),
 	}
 }
 
@@ -61,7 +64,7 @@ func (com *BaseComponent) Update(now time.Time, dt time.Duration) {
 }
 
 // Logger implements Component Logger method
-func (com *BaseComponent) Logger() Logger {
+func (com *BaseComponent) Logger() log.Logger {
 	return com.logger
 }
 

@@ -69,28 +69,41 @@ func Printf(calldepth int, level Level, format string, args ...interface{}) {
 
 // logger implements Logger
 type logger struct {
-	depth int
+	prefix string
 }
 
-func NewLogger(depth int) Logger {
-	return logger{depth: depth}
+func NewLogger(prefix string) Logger {
+	return logger{prefix: prefix}
+}
+
+func (l logger) prependPrefix(format string) string {
+	if len(l.prefix) > 0 {
+		return l.prefix + format
+	} else {
+		return format
+	}
 }
 
 func (l logger) Trace(format string, args ...interface{}) {
-	gprinter.Printf(l.depth, LvTRACE, format, args...)
+	gprinter.Printf(1, LvTRACE, l.prependPrefix(format), args...)
 }
+
 func (l logger) Debug(format string, args ...interface{}) {
-	gprinter.Printf(l.depth, LvDEBUG, format, args...)
+	gprinter.Printf(1, LvDEBUG, l.prependPrefix(format), args...)
 }
+
 func (l logger) Info(format string, args ...interface{}) {
-	gprinter.Printf(l.depth, LvINFO, format, args...)
+	gprinter.Printf(1, LvINFO, l.prependPrefix(format), args...)
 }
+
 func (l logger) Warn(format string, args ...interface{}) {
-	gprinter.Printf(l.depth, LvWARN, format, args...)
+	gprinter.Printf(1, LvWARN, l.prependPrefix(format), args...)
 }
+
 func (l logger) Error(format string, args ...interface{}) {
-	gprinter.Printf(l.depth, LvERROR, format, args...)
+	gprinter.Printf(1, LvERROR, l.prependPrefix(format), args...)
 }
+
 func (l logger) Fatal(format string, args ...interface{}) {
-	gprinter.Printf(l.depth, LvFATAL, format, args...)
+	gprinter.Printf(1, LvFATAL, l.prependPrefix(format), args...)
 }

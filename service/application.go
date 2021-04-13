@@ -6,14 +6,17 @@ import (
 
 	"github.com/gopherd/doge/build"
 	"github.com/gopherd/doge/config"
+	"github.com/gopherd/doge/log"
 	"github.com/gopherd/doge/osutil/signal"
 )
 
 // Application represents a process
 type Application interface {
 	Service
-	ID() int                           // ID of Application
+	ID() int                           // ID of application
 	Configurator() config.Configurator // Config of application
+	Logger() log.Logger                // Logger of application
+	SetLogger(log.Logger)
 }
 
 // Run runs the application
@@ -40,9 +43,21 @@ func exec(app Application) error {
 		}
 	}
 
+	log.Start(log.NewPrinter(log.NewConsole(), true))
+	defer log.Shutdown()
+	log.SetLevel(log.LvDEBUG)
+
+	logger := app.Logger()
+	if logger == nil {
+		logger = log.NewLogger("(" + build.Name() + ") ")
+		app.SetLogger(logger)
+	}
+
+	logger.Info("initializing service, pid = %d", os.Getpid())
 	if err := app.Init(); err != nil {
 		return err
 	}
+	logger.Info("starting service")
 	app.Start()
 
 	// Waiting signal INT, you can kill the process via
@@ -53,10 +68,11 @@ func exec(app Application) error {
 	signal.Register(os.Interrupt, func(os.Signal) bool {
 		return true
 	})
-	println("Waiting signal INT")
+	logger.Info("service started, waiting signal INT")
 	signal.Listen()
-	println("Received signal INT")
+	logger.Info("service received signal INT")
 
+	logger.Info("shutting down service")
 	return app.Shutdown()
 }
 
@@ -65,6 +81,7 @@ type BaseApplication struct {
 	id           int
 	name         string
 	configurator config.Configurator
+	logger       log.Logger
 }
 
 // NewBaseApplication creates a BaseApplication
@@ -100,6 +117,15 @@ func (app *BaseApplication) Name() string {
 // Configurator implements Application Configurator method
 func (app *BaseApplication) Configurator() config.Configurator {
 	return app.configurator
+}
+
+// Logger ...
+func (app *BaseApplication) Logger() log.Logger {
+	return app.logger
+}
+
+func (app *BaseApplication) SetLogger(logger log.Logger) {
+	app.logger = logger
 }
 
 // Init implements Application Init method
