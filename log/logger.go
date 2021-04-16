@@ -83,8 +83,8 @@ type printer struct {
 	writeLocker sync.Mutex // used if async==false
 }
 
-// NewPrinter creates built in printer
-func NewPrinter(writer Writer, async bool) Printer {
+// newPrinter creates built in printer
+func newPrinter(writer Writer, async bool) Printer {
 	return &printer{
 		writer:     writer,
 		entryList:  new(entry),

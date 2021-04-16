@@ -61,7 +61,7 @@ func exec(service Service) error {
 		}
 	}
 
-	log.Start(log.NewPrinter(log.NewConsole(), true))
+	log.Start(log.WithConsle())
 	defer log.Shutdown()
 	log.SetLevel(log.LvDEBUG)
 

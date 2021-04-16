@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // Level represents log level
@@ -143,5 +144,16 @@ func HTTPHandlerSetLevel() http.Handler {
 		// updated
 		SetLevel(lv)
 		io.WriteString(w, oldLevel.String())
+	})
+}
+
+var (
+	registerHTTPHandlersOnce sync.Once
+)
+
+func registerHTTPHandlers() {
+	registerHTTPHandlersOnce.Do(func() {
+		http.Handle("/log/level/get", HTTPHandlerGetLevel())
+		http.Handle("/log/level/set", HTTPHandlerSetLevel())
 	})
 }

@@ -9,17 +9,88 @@ const (
 // global printer
 var gprinter = newStdPrinter()
 
+type startOptions struct {
+	enableHTTPHandler bool
+	printer           Printer
+	writers           []Writer
+}
+
+func (opt *startOptions) apply(options []Option) {
+	for i := range options {
+		if options[i] != nil {
+			options[i](opt)
+		}
+	}
+}
+
+// Option is option for Start
+type Option func(*startOptions)
+
+// WithHTTPHandler enable or disable http handler for settting level
+func WithHTTPHandler(yes bool) Option {
+	return func(opt *startOptions) {
+		opt.enableHTTPHandler = yes
+	}
+}
+
+// WithPrinter specify custom printer
+func WithPrinter(printer Printer) Option {
+	return func(opt *startOptions) {
+		opt.printer = printer
+	}
+}
+
+// WithPrinter appends a custom writer
+func WithWriter(writer Writer) Option {
+	return func(opt *startOptions) {
+		opt.writers = append(opt.writers, writer)
+	}
+}
+
+// WithConsle append a console writer
+func WithConsle() Option {
+	return WithWriter(newConsole())
+}
+
+// WithFile append a file writer
+func WithFile(fileOptions FileOptions) Option {
+	return WithWriter(newFile(fileOptions))
+}
+
+// WithMultiFile append a multifile writer
+func WithMultiFile(multiFileOptions MultiFileOptions) Option {
+	return WithWriter(newMultiFile(multiFileOptions))
+}
+
+// Start inits global printer with options
+func Start(options ...Option) error {
+	var opt startOptions
+	opt.apply(options)
+	if opt.printer != nil && len(opt.writers) > 0 {
+		println("log.Start: writers ignored because printer sepecfied")
+	}
+	if opt.printer == nil {
+		switch len(opt.writers) {
+		case 0:
+			return nil
+		case 1:
+			opt.printer = newPrinter(opt.writers[0], true)
+		default:
+			opt.printer = newPrinter(mixWriter{opt.writers}, true)
+		}
+	}
+	gprinter.Shutdown()
+	gprinter = opt.printer
+	gprinter.Start()
+	if opt.enableHTTPHandler {
+		registerHTTPHandlers()
+	}
+	return nil
+}
+
 // Shutdown shutdowns global printer
 func Shutdown() {
 	gprinter.Shutdown()
-}
-
-// InitWithPrinter inits global printer with a specified printer
-func Start(p Printer) error {
-	gprinter.Shutdown()
-	gprinter = p
-	gprinter.Start()
-	return nil
 }
 
 // GetLevel gets level of global printer

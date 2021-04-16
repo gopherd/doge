@@ -30,19 +30,8 @@ type mixWriter struct {
 	writers []Writer
 }
 
-// Writers groups multiple writers
-func Writers(first Writer, others ...Writer) Writer {
-	p := new(mixWriter)
-	p.writers = make([]Writer, 0, len(others)+1)
-	p.writers = append(p.writers, first)
-	for _, other := range others {
-		p.writers = append(p.writers, other)
-	}
-	return p
-}
-
 // Write writes log to all inner writers
-func (p *mixWriter) Write(level Level, headerLength int, data []byte) error {
+func (p mixWriter) Write(level Level, headerLength int, data []byte) error {
 	var lastErr error
 	for _, op := range p.writers {
 		if err := op.Write(level, headerLength, data); err != nil {
@@ -53,7 +42,7 @@ func (p *mixWriter) Write(level Level, headerLength int, data []byte) error {
 }
 
 // Close closes all inner writers
-func (p *mixWriter) Close() error {
+func (p mixWriter) Close() error {
 	var lastErr error
 	for _, op := range p.writers {
 		if err := op.Close(); err != nil {
@@ -70,8 +59,8 @@ type console struct {
 	stderr        io.Writer // os.Stderr used if nil
 }
 
-// NewConsole creates a console writer
-func NewConsole() Writer {
+// newConsole creates a console writer
+func newConsole() *console {
 	return &console{
 		toStderrLevel: LvWARN,
 		stdout:        os.Stdout,
@@ -92,8 +81,16 @@ func (p *console) Write(level Level, headerLength int, data []byte) error {
 // Close implements Writer Close method
 func (p *console) Close() error { return nil }
 
-var fileHeaders = map[int]string{
-	1: `<br/><head>
+// FileHeader represents header type of file
+type FileHeader int
+
+const (
+	NoHeader   FileHeader = 0
+	HTMLHeader FileHeader = 1
+)
+
+var fileHeaders = map[FileHeader]string{
+	HTMLHeader: `<br/><head>
 	<meta charset="UTF-8">
 	<style>
 		@media screen and (min-width: 1000px) {
@@ -124,22 +121,15 @@ var fileHeaders = map[int]string{
 
 // FileOptions represents options of file writer
 type FileOptions struct {
-	Dir         string `json:"dir"`          // log directory(default: .)
-	Filename    string `json:"filename"`     // log filename(default: )
-	NoSymlink   bool   `json:"nosymlink"`    // doesn't create symlink to latest log file(default: false)
-	MaxSize     int    `json:"maxsize"`      // max bytes number of every log file(default: 64M)
-	DailyAppend bool   `json:"daily_append"` // append to existed file instead of creating a new file(default: true)
-	Suffix      string `json:"suffix"`       // filename suffix
-	DateFormat  string `json:"date_format"`  // date format string(default: %04d%02d%02d)
-	Header      int    `json:"header"`
-}
-
-// DefaultFileOptions creates default FileOptions
-func DefaultFileOptions() FileOptions {
-	opts := FileOptions{}
-	opts.setDefaults()
-	opts.DailyAppend = true
-	return opts
+	Dir          string     `json:"dir"`          // log directory (default: .)
+	Filename     string     `json:"filename"`     // log filename (default: <appName>.log)
+	SymlinkedDir string     `json:"symlinkeddir"` // symlinked directory is symlink enabled (default: symlinked)
+	NoSymlink    bool       `json:"nosymlink"`    // doesn't create symlink to latest log file (default: false)
+	MaxSize      int        `json:"maxsize"`      // max bytes number of every log file(default: 64M)
+	Rotate       bool       `json:"rotate"`       // enable log rotate (default: no)
+	Suffix       string     `json:"suffix"`       // filename suffixa(default: .log)
+	DateFormat   string     `json:"dateformat"`   // date format string (default: %04d%02d%02d)
+	Header       FileHeader `json:"header"`       // header type of file (default: NoHeader)
 }
 
 func (opts *FileOptions) setDefaults() {
@@ -154,6 +144,9 @@ func (opts *FileOptions) setDefaults() {
 	}
 	if opts.Suffix == "" {
 		opts.Suffix = ".log"
+	}
+	if opts.SymlinkedDir == "" {
+		opts.SymlinkedDir = "symlinked"
 	}
 }
 
@@ -171,12 +164,8 @@ type file struct {
 	written bool
 }
 
-// NewFile creates file writer
-func NewFile(options FileOptions) Writer {
-	return newFile(options)
-}
-
 func newFile(options FileOptions) *file {
+	options.setDefaults()
 	p := &file{
 		options:   options,
 		fileIndex: -1,
@@ -285,7 +274,7 @@ func (p *file) create() (*os.File, error) {
 	if p.options.Filename != "" {
 		prefix += "."
 	}
-	if p.options.DailyAppend {
+	if p.options.Rotate {
 		name = fmt.Sprintf("%s%s", prefix, date)
 	} else {
 		H, M, _ := p.createdTime.Clock()
@@ -305,9 +294,9 @@ func (p *file) create() (*os.File, error) {
 		err      error
 	)
 	if !p.options.NoSymlink {
-		fullname = filepath.Join(p.options.Dir, "server", name)
+		fullname = filepath.Join(p.options.Dir, p.options.SymlinkedDir, name)
 	}
-	if p.options.DailyAppend {
+	if p.options.Rotate {
 		f, err = os.OpenFile(fullname, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	} else {
 		f, err = os.OpenFile(fullname, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
@@ -319,7 +308,7 @@ func (p *file) create() (*os.File, error) {
 		}
 		symlink := filepath.Join(p.options.Dir, tmp+p.options.Suffix)
 		os.Remove(symlink)
-		os.Symlink(filepath.Join("server", name), symlink)
+		os.Symlink(filepath.Join(p.options.SymlinkedDir, name), symlink)
 	}
 	return f, err
 }
@@ -335,27 +324,19 @@ func isSameDay(t1, t2 time.Time) bool {
 }
 
 type MultiFileOptions struct {
-	RootDir     string `json:"rootdir"`      // log directory(default: .)
-	ErrorDir    string `json:"errordir"`     // error subdirectory(default: error)
-	WarnDir     string `json:"warndir"`      // warn subdirectory(default: warn)
-	InfoDir     string `json:"infodir"`      // info subdirectory(default: info)
-	DebugDir    string `json:"debugdir"`     // debug subdirectory(default: debug)
-	TraceDir    string `json:"tracedir"`     // trace subdirectory(default: trace)
-	Filename    string `json:"filename"`     // log filename(default: <appName>.log)
-	NoSymlink   bool   `json:"nosymlink"`    // doesn't create symlink to latest log file(default: false)
-	MaxSize     int    `json:"maxsize"`      // max bytes number of every log file(default: 64M)
-	DailyAppend bool   `json:"daily_append"` // append to existed file instead of creating a new file(default: true)
-	Suffix      string `json:"suffix"`       // filename suffix
-	DateFormat  string `json:"date_format"`  // date format string(default: %04d%02d%02d)
-}
-
-func DefaultMultiFileOptions() MultiFileOptions {
-	opts := MultiFileOptions{
-		RootDir:     ".",
-		DailyAppend: true,
-	}
-	opts.setDefaults()
-	return opts
+	RootDir      string `json:"rootdir"`      // log directory (default: .)
+	ErrorDir     string `json:"errordir"`     // error subdirectory (default: error)
+	WarnDir      string `json:"warndir"`      // warn subdirectory (default: warn)
+	InfoDir      string `json:"infodir"`      // info subdirectory (default: info)
+	DebugDir     string `json:"debugdir"`     // debug subdirectory (default: debug)
+	TraceDir     string `json:"tracedir"`     // trace subdirectory (default: trace)
+	Filename     string `json:"filename"`     // log filename (default: <appName>.log)
+	SymlinkedDir string `json:"symlinkeddir"` // symlinked directory is symlink enabled (default: symlinked)
+	NoSymlink    bool   `json:"nosymlink"`    // doesn't create symlink to latest log file (default: false)
+	MaxSize      int    `json:"maxsize"`      // max bytes number of every log file (default: 64M)
+	Rotate       bool   `json:"rotate"`       // enable log rotate (default: true)
+	Suffix       string `json:"suffix"`       // filename suffix (default: log)
+	DateFormat   string `json:"dateformat"`   // date format string (default: %04d%02d%02d)
 }
 
 func (opts *MultiFileOptions) setDefaults() {
@@ -396,9 +377,10 @@ func abs(path string) string {
 	return s
 }
 
-func NewMultiFile(opts string) Writer {
+func newMultiFile(options MultiFileOptions) *multiFile {
+	options.setDefaults()
 	p := new(multiFile)
-	p.options = DefaultMultiFileOptions()
+	p.options = options
 	dirs := map[Level]string{
 		LvTRACE: abs(filepath.Join(p.options.RootDir, p.options.TraceDir)),
 		LvDEBUG: abs(filepath.Join(p.options.RootDir, p.options.DebugDir)),
@@ -461,12 +443,12 @@ func (p *multiFile) initForLevel(level Level) error {
 
 func (p *multiFile) optionsOfLevel(level Level) FileOptions {
 	options := FileOptions{
-		MaxSize:     p.options.MaxSize,
-		NoSymlink:   p.options.NoSymlink,
-		Filename:    p.options.Filename,
-		DailyAppend: p.options.DailyAppend,
-		Suffix:      p.options.Suffix,
-		DateFormat:  p.options.DateFormat,
+		MaxSize:    p.options.MaxSize,
+		NoSymlink:  p.options.NoSymlink,
+		Filename:   p.options.Filename,
+		Rotate:     p.options.Rotate,
+		Suffix:     p.options.Suffix,
+		DateFormat: p.options.DateFormat,
 	}
 	switch level {
 	case LvFATAL, LvERROR:
