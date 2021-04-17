@@ -4,8 +4,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/gopherd/doge/build"
-	"github.com/gopherd/doge/log"
+	"github.com/mkideal/log"
 )
 
 // Component represents a generic logic component
@@ -34,7 +33,7 @@ type BaseComponent struct {
 func NewBaseComponent(name string) *BaseComponent {
 	return &BaseComponent{
 		name:   name,
-		logger: log.NewLogger("(" + build.Name() + "." + name + ") "),
+		logger: log.PrefixLogger(name),
 	}
 }
 

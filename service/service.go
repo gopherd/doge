@@ -4,9 +4,10 @@ import (
 	"flag"
 	"os"
 
+	"github.com/mkideal/log"
+
 	"github.com/gopherd/doge/build"
 	"github.com/gopherd/doge/config"
-	"github.com/gopherd/doge/log"
 	"github.com/gopherd/doge/osutil/signal"
 )
 
@@ -41,14 +42,6 @@ type configurable interface {
 	Configurator() config.Configurator // Config of service
 }
 
-type loggerGetter interface {
-	Logger() log.Logger
-}
-
-type loggerSetter interface {
-	SetLogger(log.Logger)
-}
-
 func exec(service Service) error {
 	// Initializing config of service if it's a configurableService
 	if cs, ok := service.(configurable); ok {
@@ -61,28 +54,18 @@ func exec(service Service) error {
 		}
 	}
 
-	log.Start(log.WithConsle())
+	log.Start(
+		log.WithConsle(),
+		log.WithLevel(log.LvDEBUG),
+		log.WithPrefix(build.Name()),
+	)
 	defer log.Shutdown()
-	log.SetLevel(log.LvDEBUG)
 
-	// Get logger of service or create a new logger
-	var logger log.Logger
-	if s, ok := service.(loggerGetter); ok {
-		logger = s.Logger()
-	}
-	if logger == nil {
-		logger = log.NewLogger("(" + build.Name() + ") ")
-		// Try set logger if service implements loggerSetter
-		if s, ok := service.(loggerSetter); ok {
-			s.SetLogger(logger)
-		}
-	}
-
-	logger.Info("initializing service, pid = %d", os.Getpid())
+	log.Info("initializing service, pid = %d", os.Getpid())
 	if err := service.Init(); err != nil {
 		return err
 	}
-	logger.Info("starting service")
+	log.Info("starting service")
 	service.Start()
 
 	// Waiting signal INT, you can kill the process via
@@ -93,20 +76,19 @@ func exec(service Service) error {
 	signal.Register(os.Interrupt, func(os.Signal) bool {
 		return true
 	})
-	logger.Info("service started, waiting signal INT")
+	log.Info("service started, waiting signal INT")
 	signal.Listen()
-	logger.Info("service received signal INT")
+	log.Info("service received signal INT")
 
-	logger.Info("shutting down service")
+	log.Info("shutting down service")
 	return service.Shutdown()
 }
 
-// BaseService implements Service, configurable, loggerGetter, loggerSetter
+// BaseService implements Service, configurable
 type BaseService struct {
 	id           int
 	name         string
 	configurator config.Configurator
-	logger       log.Logger
 }
 
 // NewBaseService creates a BaseService
@@ -142,16 +124,6 @@ func (service *BaseService) Name() string {
 // Configurator implements Service Configurator method
 func (service *BaseService) Configurator() config.Configurator {
 	return service.configurator
-}
-
-// Logger gets logger of service
-func (service *BaseService) Logger() log.Logger {
-	return service.logger
-}
-
-// SetLogger sets logger of service
-func (service *BaseService) SetLogger(logger log.Logger) {
-	service.logger = logger
 }
 
 // Init implements Service Init method
