@@ -33,7 +33,7 @@ type BaseComponent struct {
 func NewBaseComponent(name string) *BaseComponent {
 	return &BaseComponent{
 		name:   name,
-		logger: log.PrefixLogger(name),
+		logger: log.NewLogger(name),
 	}
 }
 
