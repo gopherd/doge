@@ -45,7 +45,7 @@ func TestRBTree(t *testing.T) {
 
 	const (
 		n    = 100
-		keys = 200
+		keys = 20
 	)
 	for i := 0; i < n; i++ {
 		for j := 0; j < keys/2; j++ {
@@ -58,7 +58,11 @@ func TestRBTree(t *testing.T) {
 		}
 		checkTree("add", t, tree, hashmap)
 	}
-	t.Log("tree.pretty:\n" + tree.MarshalTree("... "))
+	t.Log("tree.pretty:\n" + tree.Print(PrintOptions{
+		Prefix: "... ",
+		Color:  true,
+		Debug:  true,
+	}))
 	t.Log("tree.string:" + tree.String())
 
 	for j := 0; j < keys; j++ {

@@ -103,20 +103,15 @@ func (tree *RBTree) Last() *Node {
 	return tree.root.biggest()
 }
 
+func (tree *RBTree) Print(options PrintOptions) string {
+	return tree.root.Print(options)
+}
+
 // MarshalTree returns a pretty output of the tree
 func (tree *RBTree) MarshalTree(prefix string) string {
-	if tree.root == nil {
-		return "<nil>"
-	}
-	var (
-		buf         bytes.Buffer
-		prefixstack bytes.Buffer
-	)
-	if prefix != "" {
-		prefixstack.WriteString(prefix)
-	}
-	tree.root.pretty(&buf, &prefixstack, "", 0)
-	return buf.String()
+	return tree.root.Print(PrintOptions{
+		Prefix: prefix,
+	})
 }
 
 // String returns content of the tree as a string
@@ -540,12 +535,39 @@ func (node *Node) biggest() *Node {
 	return next
 }
 
-func (node *Node) pretty(w io.Writer, prefixstack *bytes.Buffer, prefix string, depth int) {
+type PrintOptions struct {
+	Prefix string
+	Color  bool
+	Debug  bool
+}
+
+func (node *Node) Print(options PrintOptions) string {
+	if node == nil {
+		return "<nil>"
+	}
+	var (
+		buf         bytes.Buffer
+		prefixstack bytes.Buffer
+	)
+	if options.Prefix != "" {
+		prefixstack.WriteString(options.Prefix)
+	}
+	node.print(&buf, &prefixstack, "", 0, options)
+	return buf.String()
+}
+
+func (node *Node) MarshalTree(prefix string) string {
+	return node.Print(PrintOptions{
+		Prefix: prefix,
+	})
+}
+
+func (node *Node) print(w io.Writer, prefixstack *bytes.Buffer, prefix string, depth int, options PrintOptions) {
 	var (
 		prefixlen    = prefixstack.Len()
 		cbegin, cend string
 	)
-	const (
+	var (
 		vbegin = "\033[0;90m" // gray color code
 		vend   = "\033[0m"
 	)
@@ -553,12 +575,20 @@ func (node *Node) pretty(w io.Writer, prefixstack *bytes.Buffer, prefix string, 
 		cbegin = "\033[0;31m" // red color code
 		cend = vend
 	}
+	if !options.Color {
+		vbegin = ""
+		vend = ""
+		cbegin = ""
+		cend = ""
+	}
 
 	if node.null() {
-		fmt.Fprintf(w, "%s%s%s(nil:%d)%s\n", prefixstack.String(), prefix, cbegin, depth+1, cend)
+		if options.Debug {
+			fmt.Fprintf(w, "%s%s%snil:%d%s\n", prefixstack.String(), prefix, cbegin, depth+1, cend)
+		}
 		return
 	}
-	fmt.Fprintf(w, "%s%s%s(%v)%s%s%v%s\n", prefixstack.String(), prefix, cbegin, node.key, cend, vbegin, node.value, vend)
+	fmt.Fprintf(w, "%s%s%s%v%s:%s%v%s\n", prefixstack.String(), prefix, cbegin, node.key, cend, vbegin, node.value, vend)
 
 	if node.parent != nil {
 		if node.parent.left == node {
@@ -567,9 +597,35 @@ func (node *Node) pretty(w io.Writer, prefixstack *bytes.Buffer, prefix string, 
 			prefixstack.WriteString("     ")
 		}
 	}
+	var (
+		children [2]int
+		size     = 0
+	)
+	if !options.Debug {
+		if !node.left.null() {
+			children[size] = left
+			size++
+		}
+		if !node.right.null() {
+			children[size] = right
+			size++
+		}
+	} else {
+		size = 2
+		children[0] = left
+		children[1] = right
+	}
+	for i := 0; i < size; i++ {
+		var appended string
+		if i+1 == size {
+			appended = "└── "
+		} else {
+			appended = "├── "
+		}
+		child := node.child(children[i])
+		child.print(w, prefixstack, appended, depth+int(child.color), options)
+	}
 
-	node.left.pretty(w, prefixstack, "├── ", depth+int(node.left.color))
-	node.right.pretty(w, prefixstack, "└── ", depth+int(node.right.color))
 	if prefixlen != prefixstack.Len() {
 		prefixstack.Truncate(prefixlen)
 	}
@@ -577,7 +633,7 @@ func (node *Node) pretty(w io.Writer, prefixstack *bytes.Buffer, prefix string, 
 
 func (node *Node) String() string {
 	if node.null() {
-		return fmt.Sprintf("%s(nil)", node.color)
+		return fmt.Sprintf("%snil)", node.color)
 	}
 	return fmt.Sprintf("%s(%v:%v)", node.color, node.key, node.value)
 }
