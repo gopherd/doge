@@ -6,18 +6,16 @@ import (
 	"io"
 )
 
-//template<K,V>
+//template<RBTree,K,V,RBComments>
+
 type K = int
 type V = int
 
-//template<K>
 func less(k1, k2 K) bool {
 	return k1 < k2
 }
 
-// Red-Black Tree
-//
-// @see https://en.wikipedia.org/wiki/Red–black_tree
+// RBTree RBComments
 type RBTree struct {
 	root *Node
 	size int
@@ -105,23 +103,26 @@ func (tree *RBTree) Last() *Node {
 	return tree.root.biggest()
 }
 
-// Pretty returns a pretty output of the tree
-func (tree *RBTree) Pretty() string {
+// MarshalTree returns a pretty output of the tree
+func (tree *RBTree) MarshalTree(prefix string) string {
 	if tree.root == nil {
 		return "<nil>"
 	}
 	var (
-		buf    bytes.Buffer
-		prefix bytes.Buffer
+		buf         bytes.Buffer
+		prefixstack bytes.Buffer
 	)
-	tree.root.pretty(&buf, &prefix, "", 0)
+	if prefix != "" {
+		prefixstack.WriteString(prefix)
+	}
+	tree.root.pretty(&buf, &prefixstack, "", 0)
 	return buf.String()
 }
 
 // String returns content of the tree as a string
 func (tree *RBTree) String() string {
 	var buf bytes.Buffer
-	buf.WriteByte(']')
+	buf.WriteByte('[')
 	iter := tree.First()
 	for iter != nil {
 		fmt.Fprintf(&buf, "%v:%v", iter.Key(), iter.Value())
@@ -141,8 +142,8 @@ func (tree *RBTree) insert(key K, value V) (*Node, bool) {
 			key:   key,
 			value: value,
 		}
-		tree.root.left = null(tree.root)
-		tree.root.right = null(tree.root)
+		tree.root.left = makenull(tree.root)
+		tree.root.right = makenull(tree.root)
 		return tree.root, true
 	}
 
@@ -163,8 +164,8 @@ func (tree *RBTree) insert(key K, value V) (*Node, bool) {
 					key:    key,
 					value:  value,
 				}
-				inserted.left = null(inserted)
-				inserted.right = null(inserted)
+				inserted.left = makenull(inserted)
+				inserted.right = makenull(inserted)
 				next.left = inserted
 				break
 			} else {
@@ -178,8 +179,8 @@ func (tree *RBTree) insert(key K, value V) (*Node, bool) {
 					key:    key,
 					value:  value,
 				}
-				inserted.left = null(inserted)
-				inserted.right = null(inserted)
+				inserted.left = makenull(inserted)
+				inserted.right = makenull(inserted)
 				next.right = inserted
 				break
 			} else {
@@ -213,24 +214,24 @@ func (tree *RBTree) find(key K) *Node {
 	return nil
 }
 
-func (tree *RBTree) remove(p *Node, must bool) bool {
+func (tree *RBTree) remove(n *Node, must bool) bool {
 	if !must {
-		if tree.root == nil || p == nil || p.ancestor() != tree.root {
+		if tree.root == nil || n == nil || n.ancestor() != tree.root {
 			return false
 		}
 	}
-	if !p.right.null() {
-		smallest := p.right.smallest()
-		p.value, smallest.value = smallest.value, p.value
-		p.key, smallest.key = smallest.key, p.key
-		p = smallest
+	if !n.right.null() {
+		smallest := n.right.smallest()
+		n.value, smallest.value = smallest.value, n.value
+		n.key, smallest.key = smallest.key, n.key
+		n = smallest
 	}
-	var child = p.left
+	var child = n.left
 	if child.null() {
-		child = p.right
+		child = n.right
 	}
-	if p.parent == nil {
-		if p.left.null() && p.right.null() {
+	if n.parent == nil {
+		if n.left.null() && n.right.null() {
 			tree.root = nil
 			return true
 		}
@@ -240,13 +241,13 @@ func (tree *RBTree) remove(p *Node, must bool) bool {
 		return true
 	}
 
-	if p.parent.left == p {
-		p.parent.left = child
+	if n.parent.left == n {
+		n.parent.left = child
 	} else {
-		p.parent.right = child
+		n.parent.right = child
 	}
-	child.parent = p.parent
-	if p.color == red {
+	child.parent = n.parent
+	if n.color == red {
 		return true
 	}
 	if child.color == red {
@@ -298,45 +299,45 @@ func (tree *RBTree) doInsert(n *Node) *Node {
 	return nil
 }
 
-func (tree *RBTree) doRemove(p *Node) *Node {
-	if p.parent == nil {
-		p.color = black
+func (tree *RBTree) doRemove(n *Node) *Node {
+	if n.parent == nil {
+		n.color = black
 		return nil
 	}
-	sibling := p.sibling()
+	sibling := n.sibling()
 	if sibling.color == red {
-		p.parent.color = red
+		n.parent.color = red
 		sibling.color = black
-		if p == p.parent.left {
-			tree.rotateLeft(p.parent)
+		if n == n.parent.left {
+			tree.rotateLeft(n.parent)
 		} else {
-			tree.rotateRight(p.parent)
+			tree.rotateRight(n.parent)
 		}
 	}
-	sibling = p.sibling()
-	if p.parent.color == black &&
+	sibling = n.sibling()
+	if n.parent.color == black &&
 		sibling.color == black &&
 		sibling.left.color == black &&
 		sibling.right.color == black {
 		sibling.color = red
-		return p.parent
+		return n.parent
 	}
-	if p.parent.color == red &&
+	if n.parent.color == red &&
 		sibling.color == black &&
 		sibling.left.color == black &&
 		sibling.right.color == black {
 		sibling.color = red
-		p.parent.color = black
+		n.parent.color = black
 		return nil
 	}
 	if sibling.color == black {
-		if p == p.parent.left &&
+		if n == n.parent.left &&
 			sibling.left.color == red &&
 			sibling.right.color == black {
 			sibling.color = red
 			sibling.left.color = black
 			tree.rotateRight(sibling.left.parent)
-		} else if p == p.parent.right &&
+		} else if n == n.parent.right &&
 			sibling.left.color == black &&
 			sibling.right.color == red {
 			sibling.color = red
@@ -344,10 +345,10 @@ func (tree *RBTree) doRemove(p *Node) *Node {
 			tree.rotateLeft(sibling.right.parent)
 		}
 	}
-	sibling = p.sibling()
-	sibling.color = p.parent.color
-	p.parent.color = black
-	if p == p.parent.left {
+	sibling = n.sibling()
+	sibling.color = n.parent.color
+	n.parent.color = black
+	if n == n.parent.left {
 		sibling.right.color = black
 		tree.rotateLeft(sibling.parent)
 	} else {
@@ -395,7 +396,7 @@ func (tree *RBTree) rotateRight(p *Node) {
 	tree.rotate(p, right)
 }
 
-type color int8
+type color byte
 
 const (
 	red color = iota
@@ -409,6 +410,7 @@ func (c color) String() string {
 	return "B"
 }
 
+// Node represents the node of rbtree
 type Node struct {
 	parent      *Node
 	left, right *Node
@@ -417,7 +419,7 @@ type Node struct {
 	value       V
 }
 
-func null(parent *Node) *Node {
+func makenull(parent *Node) *Node {
 	return &Node{
 		parent: parent,
 		color:  black,
@@ -435,32 +437,40 @@ func (node *Node) SetValue(value V) { node.value = value }
 
 // Prev gets previous node
 func (node *Node) Prev() *Node {
-	for !node.null() {
-		if !node.left.null() {
-			return node.left.biggest()
-		}
-		parent := node.parent
-		if node == parent.right {
-			return parent
-		}
-		node = parent
+	if node == nil || node.null() {
+		return nil
 	}
-	return node
+	if !node.left.null() {
+		return node.left.biggest()
+	}
+	parent := node.parent
+	for node != parent.right {
+		node = parent
+		parent = node.parent
+		if parent == nil {
+			return nil
+		}
+	}
+	return parent
 }
 
 // Next gets next node
 func (node *Node) Next() *Node {
-	for !node.null() {
-		if !node.right.null() {
-			return node.right.smallest()
-		}
-		parent := node.parent
-		if node == parent.left {
-			return parent
-		}
-		node = parent
+	if node == nil || node.null() {
+		return nil
 	}
-	return node
+	if !node.right.null() {
+		return node.right.smallest()
+	}
+	parent := node.parent
+	for node != parent.left {
+		node = parent
+		parent = node.parent
+		if parent == nil {
+			return nil
+		}
+	}
+	return parent
 }
 
 func (node *Node) null() bool {

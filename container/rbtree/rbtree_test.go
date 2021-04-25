@@ -58,7 +58,8 @@ func TestRBTree(t *testing.T) {
 		}
 		checkTree("add", t, tree, hashmap)
 	}
-	t.Log("tree:\n" + tree.Pretty())
+	t.Log("tree.pretty:\n" + tree.MarshalTree("... "))
+	t.Log("tree.string:" + tree.String())
 
 	for j := 0; j < keys; j++ {
 		key := makeKey(j)
