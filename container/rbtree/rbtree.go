@@ -6,14 +6,16 @@ import (
 	"io"
 )
 
-//template<RBTree,K,V,RBComments>
+//generic:replaced(RBTree,RBComments)
 
+//generic:template<K>
 type K = int
+
+//generic:template<V>
 type V = int
 
-func less(k1, k2 K) bool {
-	return k1 < k2
-}
+//generic:template<K>
+func less(k1, k2 K) bool { return k1 < k2 }
 
 // RBTree RBComments
 type RBTree struct {
@@ -103,18 +105,19 @@ func (tree *RBTree) Last() *Node {
 	return tree.root.biggest()
 }
 
-func (tree *RBTree) Print(options PrintOptions) string {
-	return tree.root.Print(options)
+// Format formats the tree
+func (tree *RBTree) Format(options FormatOptions) string {
+	return tree.root.Format(options)
 }
 
 // MarshalTree returns a pretty output of the tree
 func (tree *RBTree) MarshalTree(prefix string) string {
-	return tree.root.Print(PrintOptions{
+	return tree.root.Format(FormatOptions{
 		Prefix: prefix,
 	})
 }
 
-// String returns content of the tree as a string
+// String returns content of the tree as a plain string
 func (tree *RBTree) String() string {
 	var buf bytes.Buffer
 	buf.WriteByte('[')
@@ -535,13 +538,13 @@ func (node *Node) biggest() *Node {
 	return next
 }
 
-type PrintOptions struct {
+type FormatOptions struct {
 	Prefix string
 	Color  bool
 	Debug  bool
 }
 
-func (node *Node) Print(options PrintOptions) string {
+func (node *Node) Format(options FormatOptions) string {
 	if node == nil {
 		return "<nil>"
 	}
@@ -552,17 +555,17 @@ func (node *Node) Print(options PrintOptions) string {
 	if options.Prefix != "" {
 		prefixstack.WriteString(options.Prefix)
 	}
-	node.print(&buf, &prefixstack, "", 0, options)
+	node.format(&buf, &prefixstack, "", 0, options)
 	return buf.String()
 }
 
 func (node *Node) MarshalTree(prefix string) string {
-	return node.Print(PrintOptions{
+	return node.Format(FormatOptions{
 		Prefix: prefix,
 	})
 }
 
-func (node *Node) print(w io.Writer, prefixstack *bytes.Buffer, prefix string, depth int, options PrintOptions) {
+func (node *Node) format(w io.Writer, prefixstack *bytes.Buffer, prefix string, depth int, options FormatOptions) {
 	var (
 		prefixlen    = prefixstack.Len()
 		cbegin, cend string
@@ -623,7 +626,7 @@ func (node *Node) print(w io.Writer, prefixstack *bytes.Buffer, prefix string, d
 			appended = "├── "
 		}
 		child := node.child(children[i])
-		child.print(w, prefixstack, appended, depth+int(child.color), options)
+		child.format(w, prefixstack, appended, depth+int(child.color), options)
 	}
 
 	if prefixlen != prefixstack.Len() {

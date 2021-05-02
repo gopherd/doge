@@ -58,11 +58,12 @@ func TestRBTree(t *testing.T) {
 		}
 		checkTree("add", t, tree, hashmap)
 	}
-	t.Log("tree.pretty:\n" + tree.Print(PrintOptions{
+	t.Log("tree.pretty:\n" + tree.Format(FormatOptions{
 		Prefix: "... ",
 		Color:  true,
 		Debug:  true,
 	}))
+	t.Log("tree.plain:\n" + tree.Format(FormatOptions{}))
 	t.Log("tree.string:" + tree.String())
 
 	for j := 0; j < keys; j++ {
