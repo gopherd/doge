@@ -8,7 +8,7 @@ import (
 )
 
 func TestRBTree(t *testing.T) {
-	tree := New()
+	tree := New(func(k1, k2 K) bool { return k1 > k2 })
 	hashmap := make(map[K]V)
 
 	rand.Seed(100)
@@ -63,7 +63,7 @@ func TestRBTree(t *testing.T) {
 		Color:  true,
 		Debug:  true,
 	}))
-	t.Log("tree.plain:\n" + tree.Format(FormatOptions{}))
+	t.Log("tree.plain:\n" + tree.MarshalTree(""))
 	t.Log("tree.string:" + tree.String())
 
 	for j := 0; j < keys; j++ {

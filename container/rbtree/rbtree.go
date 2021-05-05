@@ -14,18 +14,38 @@ type K = int
 //generic:template<V>
 type V = int
 
+//generic:template<K,V>
+type Iterator interface {
+	Prev() Iterator // Prev returns previous iterator
+	Next() Iterator // Next returns next node iterator
+	Key() K         // Key returns key of the node
+	Value() V       // Value returns value of the node
+	SetValue(V)     // SetValue sets value of the node
+
+	underlyingNode() *node
+}
+
+//generic:template<K>
+type Comparefunc func(k1, k2 K) bool
+
 //generic:template<K>
 func less(k1, k2 K) bool { return k1 < k2 }
 
 // RBTree RBComments
 type RBTree struct {
-	root *Node
+	root *node
 	size int
+	cmp  Comparefunc
 }
 
-// New creates a RBTree
-func New() *RBTree {
-	return &RBTree{}
+// New creates a RBTree with compare function, less function used if cmp is nil
+func New(cmp Comparefunc) *RBTree {
+	if cmp == nil {
+		cmp = less
+	}
+	return &RBTree{
+		cmp: cmp,
+	}
 }
 
 // Len returns the number of elements
@@ -33,14 +53,19 @@ func (tree RBTree) Len() int {
 	return tree.size
 }
 
+func (tree *RBTree) Clear() {
+	tree.root = nil
+	tree.size = 0
+}
+
 // Find finds node by the key, nil returned if the key not found.
-func (tree *RBTree) Find(key K) *Node {
+func (tree *RBTree) Find(key K) Iterator {
 	return tree.find(key)
 }
 
 // Insert inserts a key-value pair, inserted node and true returned
 // if the key not found, otherwise, existed node and false returned.
-func (tree *RBTree) Insert(key K, value V) (*Node, bool) {
+func (tree *RBTree) Insert(key K, value V) (Iterator, bool) {
 	node, ok := tree.insert(key, value)
 	if ok {
 		tree.size++
@@ -60,7 +85,11 @@ func (tree *RBTree) Remove(key K) bool {
 }
 
 // Erase deletes the node, false returned if the node not found.
-func (tree *RBTree) Erase(node *Node) bool {
+func (tree *RBTree) Erase(iter Iterator) bool {
+	if iter == nil {
+		return false
+	}
+	node := iter.underlyingNode()
 	if node == nil || node.null() {
 		return false
 	}
@@ -81,7 +110,7 @@ func (tree *RBTree) Erase(node *Node) bool {
 //		// hint: iter.Key(), iter.Value(), iter.SetValue(newValue)
 //		iter = iter.Next()
 //	}
-func (tree *RBTree) First() *Node {
+func (tree *RBTree) First() Iterator {
 	if tree.root == nil {
 		return nil
 	}
@@ -98,21 +127,28 @@ func (tree *RBTree) First() *Node {
 //		// hint: iter.Key(), iter.Value(), iter.SetValue(newValue)
 //		iter = iter.Prev()
 //	}
-func (tree *RBTree) Last() *Node {
+func (tree *RBTree) Last() Iterator {
 	if tree.root == nil {
 		return nil
 	}
 	return tree.root.biggest()
 }
 
+// FormatOptions contains options for formatting Tree
+type FormatOptions struct {
+	Prefix string
+	Color  bool
+	Debug  bool
+}
+
 // Format formats the tree
 func (tree *RBTree) Format(options FormatOptions) string {
-	return tree.root.Format(options)
+	return tree.root.format(options)
 }
 
 // MarshalTree returns a pretty output of the tree
 func (tree *RBTree) MarshalTree(prefix string) string {
-	return tree.root.Format(FormatOptions{
+	return tree.root.format(FormatOptions{
 		Prefix: prefix,
 	})
 }
@@ -133,9 +169,9 @@ func (tree *RBTree) String() string {
 	return buf.String()
 }
 
-func (tree *RBTree) insert(key K, value V) (*Node, bool) {
+func (tree *RBTree) insert(key K, value V) (*node, bool) {
 	if tree.root == nil {
-		tree.root = &Node{
+		tree.root = &node{
 			color: black,
 			key:   key,
 			value: value,
@@ -147,16 +183,16 @@ func (tree *RBTree) insert(key K, value V) (*Node, bool) {
 
 	var (
 		next     = tree.root
-		inserted *Node
+		inserted *node
 	)
 	for {
 		if key == next.key {
 			next.value = value
 			return next, false
 		}
-		if less(key, next.key) {
+		if tree.cmp(key, next.key) {
 			if next.left.null() {
-				inserted = &Node{
+				inserted = &node{
 					parent: next,
 					color:  red,
 					key:    key,
@@ -171,7 +207,7 @@ func (tree *RBTree) insert(key K, value V) (*Node, bool) {
 			}
 		} else {
 			if next.right.null() {
-				inserted = &Node{
+				inserted = &node{
 					parent: next,
 					color:  red,
 					key:    key,
@@ -197,13 +233,13 @@ func (tree *RBTree) insert(key K, value V) (*Node, bool) {
 	return inserted, true
 }
 
-func (tree *RBTree) find(key K) *Node {
+func (tree *RBTree) find(key K) *node {
 	var next = tree.root
 	for next != nil && !next.null() {
 		if next.key == key {
 			return next
 		}
-		if less(key, next.key) {
+		if tree.cmp(key, next.key) {
 			next = next.left
 		} else {
 			next = next.right
@@ -212,7 +248,7 @@ func (tree *RBTree) find(key K) *Node {
 	return nil
 }
 
-func (tree *RBTree) remove(n *Node, must bool) bool {
+func (tree *RBTree) remove(n *node, must bool) bool {
 	if !must {
 		if tree.root == nil || n == nil || n.ancestor() != tree.root {
 			return false
@@ -258,7 +294,7 @@ func (tree *RBTree) remove(n *Node, must bool) bool {
 	return true
 }
 
-func (tree *RBTree) doInsert(n *Node) *Node {
+func (tree *RBTree) doInsert(n *node) *node {
 	if n.parent == nil {
 		tree.root = n
 		n.color = black
@@ -297,7 +333,7 @@ func (tree *RBTree) doInsert(n *Node) *Node {
 	return nil
 }
 
-func (tree *RBTree) doRemove(n *Node) *Node {
+func (tree *RBTree) doRemove(n *node) *node {
 	if n.parent == nil {
 		n.color = black
 		return nil
@@ -361,7 +397,7 @@ const (
 	right = 1
 )
 
-func (tree *RBTree) rotate(p *Node, dir int) *Node {
+func (tree *RBTree) rotate(p *node, dir int) *node {
 	var (
 		g = p.parent
 		s = p.child(1 - dir)
@@ -386,11 +422,11 @@ func (tree *RBTree) rotate(p *Node, dir int) *Node {
 	return s
 }
 
-func (tree *RBTree) rotateLeft(p *Node) {
+func (tree *RBTree) rotateLeft(p *node) {
 	tree.rotate(p, left)
 }
 
-func (tree *RBTree) rotateRight(p *Node) {
+func (tree *RBTree) rotateRight(p *node) {
 	tree.rotate(p, right)
 }
 
@@ -408,33 +444,51 @@ func (c color) String() string {
 	return "B"
 }
 
-// Node represents the node of rbtree
-type Node struct {
-	parent      *Node
-	left, right *Node
+// node represents the node of rbtree
+type node struct {
+	parent      *node
+	left, right *node
 	color       color
 	key         K
 	value       V
 }
 
-func makenull(parent *Node) *Node {
-	return &Node{
+func makenull(parent *node) *node {
+	return &node{
 		parent: parent,
 		color:  black,
 	}
 }
 
-// Key returns node's key
-func (node *Node) Key() K { return node.key }
+// Prev implements Iterator Prev method
+func (node *node) Prev() Iterator {
+	if prev := node.prev(); prev != nil {
+		return prev
+	}
+	return nil
+}
 
-// Value returns node's value
-func (node *Node) Value() V { return node.value }
+// Next implements Iterator Next method
+func (node *node) Next() Iterator {
+	if next := node.next(); next != nil {
+		return next
+	}
+	return nil
+}
 
-// SetValue sets node's value
-func (node *Node) SetValue(value V) { node.value = value }
+// Key returns node's key, implements Iterator Key method
+func (node *node) Key() K { return node.key }
 
-// Prev gets previous node
-func (node *Node) Prev() *Node {
+// Value returns node's value, implements Iterator Value method
+func (node *node) Value() V { return node.value }
+
+// SetValue sets node's value, implements Iterator SetValue method
+func (node *node) SetValue(value V) { node.value = value }
+
+// underlyingNode implements Iterator underlyingNode method
+func (node *node) underlyingNode() *node { return node }
+
+func (node *node) prev() *node {
 	if node == nil || node.null() {
 		return nil
 	}
@@ -452,8 +506,7 @@ func (node *Node) Prev() *Node {
 	return parent
 }
 
-// Next gets next node
-func (node *Node) Next() *Node {
+func (node *node) next() *node {
 	if node == nil || node.null() {
 		return nil
 	}
@@ -471,18 +524,18 @@ func (node *Node) Next() *Node {
 	return parent
 }
 
-func (node *Node) null() bool {
+func (node *node) null() bool {
 	return node.left == nil && node.right == nil
 }
 
-func (node *Node) child(dir int) *Node {
+func (node *node) child(dir int) *node {
 	if dir == left {
 		return node.left
 	}
 	return node.right
 }
 
-func (node *Node) setChild(dir int, child *Node) {
+func (node *node) setChild(dir int, child *node) {
 	if dir == left {
 		node.left = child
 	} else {
@@ -490,7 +543,7 @@ func (node *Node) setChild(dir int, child *Node) {
 	}
 }
 
-func (node *Node) ancestor() *Node {
+func (node *node) ancestor() *node {
 	ancestor := node
 	for ancestor.parent != nil {
 		ancestor = ancestor.parent
@@ -498,14 +551,14 @@ func (node *Node) ancestor() *Node {
 	return ancestor
 }
 
-func (node *Node) grandparent() *Node {
+func (node *node) grandparent() *node {
 	if node.parent == nil {
 		return nil
 	}
 	return node.parent.parent
 }
 
-func (node *Node) sibling() *Node {
+func (node *node) sibling() *node {
 	if node.parent == nil {
 		return nil
 	}
@@ -515,14 +568,14 @@ func (node *Node) sibling() *Node {
 	return node.parent.left
 }
 
-func (node *Node) uncle() *Node {
+func (node *node) uncle() *node {
 	if node.parent == nil {
 		return nil
 	}
 	return node.parent.sibling()
 }
 
-func (node *Node) smallest() *Node {
+func (node *node) smallest() *node {
 	var next = node
 	for !next.left.null() {
 		next = next.left
@@ -530,7 +583,7 @@ func (node *Node) smallest() *Node {
 	return next
 }
 
-func (node *Node) biggest() *Node {
+func (node *node) biggest() *node {
 	var next = node
 	for next.right.null() {
 		next = next.right
@@ -538,13 +591,7 @@ func (node *Node) biggest() *Node {
 	return next
 }
 
-type FormatOptions struct {
-	Prefix string
-	Color  bool
-	Debug  bool
-}
-
-func (node *Node) Format(options FormatOptions) string {
+func (node *node) format(options FormatOptions) string {
 	if node == nil {
 		return "<nil>"
 	}
@@ -555,17 +602,11 @@ func (node *Node) Format(options FormatOptions) string {
 	if options.Prefix != "" {
 		prefixstack.WriteString(options.Prefix)
 	}
-	node.format(&buf, &prefixstack, "", 0, options)
+	node.print(&buf, &prefixstack, "", 0, options)
 	return buf.String()
 }
 
-func (node *Node) MarshalTree(prefix string) string {
-	return node.Format(FormatOptions{
-		Prefix: prefix,
-	})
-}
-
-func (node *Node) format(w io.Writer, prefixstack *bytes.Buffer, prefix string, depth int, options FormatOptions) {
+func (node *node) print(w io.Writer, prefixstack *bytes.Buffer, prefix string, depth int, options FormatOptions) {
 	var (
 		prefixlen    = prefixstack.Len()
 		cbegin, cend string
@@ -626,7 +667,7 @@ func (node *Node) format(w io.Writer, prefixstack *bytes.Buffer, prefix string, 
 			appended = "├── "
 		}
 		child := node.child(children[i])
-		child.format(w, prefixstack, appended, depth+int(child.color), options)
+		child.print(w, prefixstack, appended, depth+int(child.color), options)
 	}
 
 	if prefixlen != prefixstack.Len() {
@@ -634,9 +675,9 @@ func (node *Node) format(w io.Writer, prefixstack *bytes.Buffer, prefix string, 
 	}
 }
 
-func (node *Node) String() string {
-	if node.null() {
-		return fmt.Sprintf("%snil)", node.color)
-	}
-	return fmt.Sprintf("%s(%v:%v)", node.color, node.key, node.value)
-}
+//func (node *node) String() string {
+//	if node.null() {
+//		return fmt.Sprintf("%snil)", node.color)
+//	}
+//	return fmt.Sprintf("%s(%v:%v)", node.color, node.key, node.value)
+//}
