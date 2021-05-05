@@ -45,7 +45,7 @@ func TestRBTree(t *testing.T) {
 
 	const (
 		n    = 100
-		keys = 20
+		keys = 30
 	)
 	for i := 0; i < n; i++ {
 		for j := 0; j < keys/2; j++ {
@@ -60,7 +60,6 @@ func TestRBTree(t *testing.T) {
 	}
 	t.Log("tree.pretty:\n" + tree.Format(FormatOptions{
 		Prefix: "... ",
-		Color:  true,
 		Debug:  true,
 	}))
 	t.Log("tree.plain:\n" + tree.MarshalTree(""))

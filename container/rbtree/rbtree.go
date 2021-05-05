@@ -7,11 +7,13 @@ import (
 	"io"
 )
 
+// K represents type of the key
 //generic:template<key:"int">
-type K = int // K represents type of the key
+type K = int
 
+// V represents type of the value
 //generic:template<value:"int">
-type V = int // V represents type of the value
+type V = int
 
 type (
 	// Iterator represents an iterator of RBTree to iterate nodes
@@ -31,18 +33,18 @@ type (
 	}
 
 	// CompareFunc represents comparation between key
-	Comparefunc func(k1, k2 K) bool
+	CompareFunc func(k1, k2 K) bool
 )
 
 // RBTree RBComment
 type RBTree struct {
 	root *node
 	size int
-	cmp  Comparefunc
+	cmp  CompareFunc
 }
 
 // New creates a RBTree with compare function
-func New(cmp Comparefunc) *RBTree {
+func New(cmp CompareFunc) *RBTree {
 	if cmp == nil {
 		panic("cmp is nil")
 	}
@@ -56,6 +58,7 @@ func (tree RBTree) Len() int {
 	return tree.size
 }
 
+// Clear clears the container
 func (tree *RBTree) Clear() {
 	tree.root = nil
 	tree.size = 0
@@ -140,7 +143,6 @@ func (tree *RBTree) Last() Iterator {
 // FormatOptions contains options for formatting RBTree
 type FormatOptions struct {
 	Prefix string
-	Color  bool
 	Debug  bool
 }
 
@@ -622,7 +624,7 @@ func (node *node) print(w io.Writer, prefixstack *bytes.Buffer, prefix string, d
 		cbegin = "\033[0;31m" // red color code
 		cend = vend
 	}
-	if !options.Color {
+	if !options.Debug {
 		vbegin = ""
 		vend = ""
 		cbegin = ""
@@ -638,10 +640,16 @@ func (node *node) print(w io.Writer, prefixstack *bytes.Buffer, prefix string, d
 	fmt.Fprintf(w, "%s%s%s%v%s:%s%v%s\n", prefixstack.String(), prefix, cbegin, node.key, cend, vbegin, node.value, vend)
 
 	if node.parent != nil {
-		if node.parent.left == node {
-			prefixstack.WriteString("│    ")
+		var isLast bool
+		if options.Debug {
+			isLast = node.parent.right == node
 		} else {
+			isLast = node.parent.right == node || node.parent.right.null()
+		}
+		if isLast {
 			prefixstack.WriteString("     ")
+		} else {
+			prefixstack.WriteString("│    ")
 		}
 	}
 	var (
