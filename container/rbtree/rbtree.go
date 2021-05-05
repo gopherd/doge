@@ -1,3 +1,4 @@
+//generic:replace<pkg:"rbtree" name:"RBTree" comment:"RBComment">
 package rbtree
 
 import (
@@ -6,42 +7,44 @@ import (
 	"io"
 )
 
-//generic:replaced(RBTree,RBComments)
+//generic:template<key:"int">
+type K = int // K represents type of the key
 
-//generic:template<K>
-type K = int
+//generic:template<value:"int">
+type V = int // V represents type of the value
 
-//generic:template<V>
-type V = int
+type (
+	// Iterator represents an iterator of RBTree to iterate nodes
+	Iterator interface {
+		// Prev returns previous iterator
+		Prev() Iterator
+		// Next returns next node iterator
+		Next() Iterator
+		// Key returns key of the node
+		Key() K
+		// Value returns value of the node
+		Value() V
+		// SetValue sets value of the node
+		SetValue(V)
 
-//generic:template<K,V>
-type Iterator interface {
-	Prev() Iterator // Prev returns previous iterator
-	Next() Iterator // Next returns next node iterator
-	Key() K         // Key returns key of the node
-	Value() V       // Value returns value of the node
-	SetValue(V)     // SetValue sets value of the node
+		underlyingNode() *node
+	}
 
-	underlyingNode() *node
-}
+	// CompareFunc represents comparation between key
+	Comparefunc func(k1, k2 K) bool
+)
 
-//generic:template<K>
-type Comparefunc func(k1, k2 K) bool
-
-//generic:template<K>
-func less(k1, k2 K) bool { return k1 < k2 }
-
-// RBTree RBComments
+// RBTree RBComment
 type RBTree struct {
 	root *node
 	size int
 	cmp  Comparefunc
 }
 
-// New creates a RBTree with compare function, less function used if cmp is nil
+// New creates a RBTree with compare function
 func New(cmp Comparefunc) *RBTree {
 	if cmp == nil {
-		cmp = less
+		panic("cmp is nil")
 	}
 	return &RBTree{
 		cmp: cmp,
@@ -134,7 +137,7 @@ func (tree *RBTree) Last() Iterator {
 	return tree.root.biggest()
 }
 
-// FormatOptions contains options for formatting Tree
+// FormatOptions contains options for formatting RBTree
 type FormatOptions struct {
 	Prefix string
 	Color  bool
@@ -146,7 +149,7 @@ func (tree *RBTree) Format(options FormatOptions) string {
 	return tree.root.format(options)
 }
 
-// MarshalTree returns a pretty output of the tree
+// MarshalTree returns a pretty output as a tree
 func (tree *RBTree) MarshalTree(prefix string) string {
 	return tree.root.format(FormatOptions{
 		Prefix: prefix,
@@ -444,7 +447,7 @@ func (c color) String() string {
 	return "B"
 }
 
-// node represents the node of rbtree
+// node represents the node of RBTree
 type node struct {
 	parent      *node
 	left, right *node
@@ -674,10 +677,3 @@ func (node *node) print(w io.Writer, prefixstack *bytes.Buffer, prefix string, d
 		prefixstack.Truncate(prefixlen)
 	}
 }
-
-//func (node *node) String() string {
-//	if node.null() {
-//		return fmt.Sprintf("%snil)", node.color)
-//	}
-//	return fmt.Sprintf("%s(%v:%v)", node.color, node.key, node.value)
-//}
