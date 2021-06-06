@@ -12,16 +12,14 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/gopherd/doge/io/pagebuf"
-	"github.com/mkideal/log"
 )
 
 const (
-	// max length of content
-	MaxContentLength = int(^uint(0) >> 1)
+	// max length of content: 1G
+	MaxContentLength = 1 << 30
 )
 
 var (
@@ -72,6 +70,15 @@ func isClosedConnError(err error) bool {
 	return false
 }
 
+// IsNetworkError returns whether the error is a network error or an EOF
+func IsNetworkError(err error) bool {
+	terr, ok := err.(net.Error)
+	if err != io.EOF && err != io.ErrUnexpectedEOF && (!ok || !terr.Temporary()) && !isClosedConnError(err) {
+		return false
+	}
+	return true
+}
+
 // timeoutReader wraps net.Conn as an io.Reader with timeout
 type timeoutReader struct {
 	conn    net.Conn
@@ -96,36 +103,35 @@ type Body interface {
 
 	// Peek returns the next n bytes without advancing the reader. The bytes stop
 	// being valid at the next read call. If Peek returns fewer than n bytes, it
-	// also returns an error explaining why the read is short. The error is
-	// ErrBufferFull if n is larger than b's buffer size.
+	// also returns an error explaining why the read is short.
 	Peek(n int) ([]byte, error)
 }
 
 type reader struct {
-	conn  net.Conn
-	bufr  *bufio.Reader
-	limit int
+	conn net.Conn
+	bufr *bufio.Reader
+	size int
 }
 
 func newReader(conn net.Conn, timeout time.Duration) *reader {
-	b := &reader{
+	return &reader{
 		conn: conn,
+		bufr: bufio.NewReader(&timeoutReader{
+			conn:    conn,
+			timeout: timeout,
+		}),
+		size: -1,
 	}
-	b.bufr = bufio.NewReader(&timeoutReader{
-		conn:    conn,
-		timeout: timeout,
-	})
-	return b
 }
 
-// Len implements Body Len method
+// Len implements Body Len method, -1 returned if no limit
 func (b *reader) Len() int {
-	return b.limit
+	return b.size
 }
 
 // Peek implements Body Peek method
 func (b *reader) Peek(n int) ([]byte, error) {
-	if b.limit >= 0 && b.limit < n {
+	if b.size >= 0 && b.size < n {
 		return nil, io.EOF
 	}
 	return b.bufr.Peek(n)
@@ -133,14 +139,14 @@ func (b *reader) Peek(n int) ([]byte, error) {
 
 // ReadByte implements io.ByteReader ReadByte method
 func (b *reader) ReadByte() (c byte, err error) {
-	if b.limit == 0 {
-		err = io.ErrUnexpectedEOF
+	if b.size == 0 {
+		err = io.EOF
 		return
 	}
 	c, err = b.bufr.ReadByte()
 	if err == nil {
-		if b.limit > 0 {
-			b.limit--
+		if b.size > 0 {
+			b.size--
 		}
 	}
 	return
@@ -148,24 +154,24 @@ func (b *reader) ReadByte() (c byte, err error) {
 
 // Read implements io.Reader Read method
 func (b *reader) Read(p []byte) (n int, err error) {
-	if b.limit == 0 {
+	if b.size == 0 {
 		return 0, io.EOF
 	}
-	if b.limit > 0 && len(p) > b.limit {
-		p = p[:b.limit]
+	if b.size > 0 && len(p) > b.size {
+		p = p[:b.size]
 	}
 	n, err = b.bufr.Read(p)
-	if b.limit > 0 {
-		b.limit -= n
+	if b.size > 0 {
+		b.size -= n
 	}
 	return
 }
 
 func (b *reader) discard() error {
-	if b.limit == 0 {
+	if b.size <= 0 {
 		return nil
 	}
-	_, err := b.bufr.Discard(b.limit)
+	_, err := b.bufr.Discard(b.size)
 	return err
 }
 
@@ -196,17 +202,18 @@ type SessionEventHandler interface {
 
 // Session wraps network session
 type Session struct {
-	closed int32
-	err    error
-	once   sync.Once
-
 	reader  *reader
 	writer  *bufio.Writer
 	handler SessionEventHandler
 
+	closed int32
+	err    error
+	once   sync.Once
+
 	mutex sync.Mutex
 	cond  *sync.Cond
 	pipe  *pagebuf.PageBuffer
+	bufw  []byte
 }
 
 // NewSession creates a session
@@ -222,12 +229,18 @@ func NewSession(conn net.Conn, handler SessionEventHandler, options ...Option) *
 		pipe:    pagebuf.NewPageBuffer(),
 	}
 	s.cond = sync.NewCond(&s.mutex)
+	s.bufw = make([]byte, s.pipe.PageSize())
 	return s
+}
+
+// Conn returns the underlying connection
+func (s *Session) Conn() net.Conn {
+	return s.reader.conn
 }
 
 // Write implements io.Writer Write method
 func (s *Session) Write(p []byte) (n int, err error) {
-	if !s.IsClosed() {
+	if s.IsClosed() {
 		err = net.ErrClosed
 		return
 	}
@@ -243,7 +256,7 @@ func (s *Session) Write(p []byte) (n int, err error) {
 	return
 }
 
-// Run runs the read and write loops, and block until the session closed
+// Run runs the read/write loops, it will block until the session closed
 func (s *Session) Run() {
 	s.once.Do(s.run)
 }
@@ -264,8 +277,10 @@ func (s *Session) run() {
 	closeWg.Wait()
 	s.handler.OnClose(s.err)
 
+	if s.err != nil {
+		s.flush()
+	}
 	// close the underlying connection
-	log.Debug("session %s closed", s.reader.conn.RemoteAddr().String())
 	s.reader.conn.Close()
 }
 
@@ -282,20 +297,15 @@ func (s *Session) setClosed(err error) {
 }
 
 // Close closes the session
-func (s *Session) Close() {
+func (s *Session) Close() error {
 	s.setClosed(nil)
+	return nil
 }
 
 func (s *Session) readLoop(readyWg, closeWg *sync.WaitGroup) {
 	readyWg.Done()
 	for !s.IsClosed() {
 		if err := s.underlyingRead(); err != nil {
-			terr, ok := err.(net.Error)
-			if err != io.EOF && err != io.ErrUnexpectedEOF && (!ok || !terr.Temporary()) && !isClosedConnError(err) {
-				log.Warn("session %s read error: %v", s.reader.conn.RemoteAddr().String(), err)
-			} else if operr, ok := err.(*net.OpError); ok && operr.Err.Error() == syscall.ECONNRESET.Error() {
-				log.Info("session %s read failed: %v", s.reader.conn.RemoteAddr().String(), err)
-			}
 			s.setClosed(err)
 			break
 		}
@@ -305,7 +315,6 @@ func (s *Session) readLoop(readyWg, closeWg *sync.WaitGroup) {
 
 func (s *Session) writeLoop(readyWg, closeWg *sync.WaitGroup) {
 	readyWg.Done()
-	var buf = make([]byte, s.pipe.PageSize())
 	for !s.IsClosed() {
 		s.cond.L.Lock()
 		for s.pipe.Len() == 0 {
@@ -315,17 +324,21 @@ func (s *Session) writeLoop(readyWg, closeWg *sync.WaitGroup) {
 			}
 		}
 		s.cond.L.Unlock()
-		for {
-			s.cond.L.Lock()
-			n, _ := s.pipe.Read(buf)
-			s.cond.L.Unlock()
-			if n == 0 {
-				break
-			}
-			s.underlyingWrite(buf[:n])
-		}
+		s.flush()
 	}
 	closeWg.Done()
+}
+
+func (s *Session) flush() {
+	for {
+		s.cond.L.Lock()
+		n, _ := s.pipe.Read(s.bufw)
+		s.cond.L.Unlock()
+		if n == 0 {
+			break
+		}
+		s.underlyingWrite(s.bufw[:n])
+	}
 }
 
 func (s *Session) underlyingWrite(p []byte) error {
@@ -338,7 +351,7 @@ func (s *Session) underlyingWrite(p []byte) error {
 
 func (s *Session) underlyingRead() error {
 	// read content length without limit
-	s.reader.limit = -1
+	s.reader.size = -1
 	contentLength, err := binary.ReadUvarint(s.reader)
 	if err != nil {
 		return err
@@ -348,7 +361,7 @@ func (s *Session) underlyingRead() error {
 	}
 
 	// handle the body with limit
-	s.reader.limit = int(contentLength)
+	s.reader.size = int(contentLength)
 	if err := s.handler.OnMessage(s.reader); err != nil {
 		return err
 	}

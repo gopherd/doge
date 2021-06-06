@@ -1,8 +1,9 @@
 package server
 
 import (
-	"sync"
+	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/gopherd/doge/service"
 )
@@ -14,76 +15,18 @@ const (
 	kUserInfoTTLRatio             = 750
 )
 
-type pendingSession struct {
-	uid  int64
-	meta uint32
-}
-
-type connections struct {
-	mutex        sync.RWMutex
-	maxSize      int
-	maxSizePerIP int
-	sessions     map[int64]*session
-	uid2sid      map[int64]int64
-	ips          map[string]int
-}
-
-func newConnections(maxSize, maxSizePerIP int) *connections {
-	return &connections{
-		maxSize:      maxSize,
-		maxSizePerIP: maxSizePerIP,
-		sessions:     make(map[int64]*session),
-		uid2sid:      make(map[int64]int64),
-		ips:          make(map[string]int),
-	}
-}
-
-func (c *connections) size() int {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-	return len(c.sessions)
-}
-
-func (c *connections) add(s *session) (n int, ok bool) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	c.sessions[s.id] = s
-	n = len(c.sessions)
-	if n < c.maxSize {
-		ok = true
-	} else {
-		s.setState(stateOverflow)
-	}
-	return
-}
-
-func (c *connections) remove(id int64) *session {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	s, ok := c.sessions[id]
-	if !ok {
-		return nil
-	}
-	ip := s.ip
-	if n, ok := c.ips[ip]; n > 1 {
-		c.ips[ip] = n - 1
-	} else if ok {
-		delete(c.ips, ip)
-	}
-	if uid := s.getUser().token.Uid; uid > 0 {
-		delete(c.uid2sid, uid)
-	}
-	return s
-}
-
 type server struct {
 	*service.BaseService
-	config *Config
+
+	internal struct {
+		config *Config
+	}
 
 	quit, wait chan struct{}
 
 	// components list all components of ram
 	components struct {
+		sessionManager *sessionManager
 		// more...
 	}
 }
@@ -93,12 +36,27 @@ func New() service.Service {
 	cfg := NewConfig()
 	s := &server{
 		BaseService: service.NewBaseService(cfg),
-		config:      cfg,
 		quit:        make(chan struct{}),
 		wait:        make(chan struct{}),
 	}
 
+	s.internal.config = cfg
+
+	s.components.sessionManager = s.AddComponent(
+		newSessionManager(s),
+	).(*sessionManager)
+
 	return s
+}
+
+// GetConfig atomically gets the config
+func (s *server) GetConfig() *Config {
+	return (*Config)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&s.internal.config))))
+}
+
+// SetConfig atomically updates the config
+func (s *server) SetConfig(cfg unsafe.Pointer) {
+	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&s.internal.config)), cfg)
 }
 
 // Init overrides BaseService Init method
