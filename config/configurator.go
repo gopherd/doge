@@ -17,6 +17,8 @@ type Configurator interface {
 	Write(Configurator, io.Writer) error
 	// SetSource sets source of config
 	SetSource(string)
+	// GetDiscovery returns configuration of discovery
+	GetDiscovery() (name, source string)
 }
 
 type option struct {
@@ -165,4 +167,10 @@ func Init(flagSet *flag.FlagSet, cfg Configurator, options ...Option) error {
 	}
 
 	return nil
+}
+
+// Discoverable represents a discoverable configurator
+type Discoverable interface {
+	// DiscoveredContent returns a discovered data
+	DiscoveredContent() ([]byte, error)
 }

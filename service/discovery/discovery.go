@@ -8,7 +8,7 @@ import (
 // Discovery represents a interface for service discovery
 type Discovery interface {
 	// Register registers a service
-	Register(serviceName, serviceId string, value []byte) error
+	Register(serviceName, serviceId string, content []byte) error
 	// Unregister unregisters a service
 	Unregister(serviceName, serviceId string) error
 	// Resolve resolves any one service by name

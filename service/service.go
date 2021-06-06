@@ -1,32 +1,37 @@
 package service
 
 import (
+	"encoding/json"
 	"flag"
 	"os"
+	"time"
 
 	"github.com/mkideal/log"
 
 	"github.com/gopherd/doge/build"
+	"github.com/gopherd/doge/component"
 	"github.com/gopherd/doge/config"
-	"github.com/gopherd/doge/osutil/signal"
+	"github.com/gopherd/doge/os/signal"
+	"github.com/gopherd/doge/service/discovery"
 )
 
 // Service represents a process
 type Service interface {
-	ID() int      // ID of service
-	Name() string // Name returns name of service
-
+	// ID returns id of service
+	ID() string
+	// Name of service
+	Name() string
 	// Init initializes the service
 	Init() error
 	// Start starts the service
 	Start() error
-	// Shutdown shutdown the service
+	// Shutdown shutdowns the service
 	Shutdown() error
 }
 
-// Run runs the service
-func Run(service Service) {
-	if err := exec(service); err != nil {
+// Run runs the application
+func Run(app Service) {
+	if err := exec(app); err != nil {
 		code, ok := config.IsExitError(err)
 		if !ok {
 			code = 1
@@ -38,22 +43,7 @@ func Run(service Service) {
 	}
 }
 
-type configurable interface {
-	Configurator() config.Configurator // Config of service
-}
-
-func exec(service Service) error {
-	// Initializing config of service if it's a configurableService
-	if cs, ok := service.(configurable); ok {
-		if cfg := cs.Configurator(); cfg != nil {
-			defaultSource := build.Name() + ".json"
-			err := config.Init(flag.CommandLine, cfg, config.WithDefaultSource(defaultSource))
-			if err != nil {
-				return err
-			}
-		}
-	}
-
+func exec(app Service) error {
 	log.Start(
 		log.WithConsle(),
 		log.WithLevel(log.LvDEBUG),
@@ -61,12 +51,12 @@ func exec(service Service) error {
 	)
 	defer log.Shutdown()
 
-	log.Info("initializing service, pid = %d", os.Getpid())
-	if err := service.Init(); err != nil {
+	log.Info("initializing application, pid = %d", os.Getpid())
+	if err := app.Init(); err != nil {
 		return err
 	}
-	log.Info("starting service")
-	service.Start()
+	log.Info("starting application")
+	app.Start()
 
 	// Waiting signal INT, you can kill the process via
 	//
@@ -76,67 +66,96 @@ func exec(service Service) error {
 	signal.Register(os.Interrupt, func(os.Signal) bool {
 		return true
 	})
-	log.Info("service started, waiting signal INT")
+	log.Info("application started, waiting signal INT")
 	signal.Listen()
-	log.Info("service received signal INT")
+	log.Info("application received signal INT")
 
-	log.Info("shutting down service")
-	return service.Shutdown()
+	log.Info("shutting down application")
+	return app.Shutdown()
 }
 
-// BaseService implements Service, configurable
+// BaseService implements Service
 type BaseService struct {
-	id           int
-	name         string
-	configurator config.Configurator
+	id         string
+	name       string
+	cfg        config.Configurator
+	discovery  discovery.Discovery
+	components *component.Manager
 }
 
-// NewBaseService creates a BaseService
-func NewBaseService() *BaseService {
-	return &BaseService{}
+// NewBaseService creates a BaseApplication
+func NewBaseService(cfg config.Configurator) *BaseService {
+	return &BaseService{
+		cfg:        cfg,
+		components: component.NewManager(),
+	}
 }
 
-// SetID sets id of service
-func (service *BaseService) SetID(id int) {
-	service.id = id
+func (app *BaseService) AddComponent(com component.Component) component.Component {
+	return app.components.Add(com)
 }
 
-// SetName sets name of service
-func (service *BaseService) SetName(name string) {
-	service.name = name
+// SetID sets id of application
+func (app *BaseService) SetID(id string) {
+	app.id = id
 }
 
-// SetConfigurator sets configurator of service
-func (service *BaseService) SetConfigurator(configurator config.Configurator) {
-	service.configurator = configurator
+// ID implements Application.Service ID method
+func (app *BaseService) ID() string {
+	return app.id
 }
 
-// ID implements Service ID method
-func (service *BaseService) ID() int {
-	return service.id
+// SetName sets name of application
+func (app *BaseService) SetName(name string) {
+	app.name = name
 }
 
-// Name implements Service Name method
-func (service *BaseService) Name() string {
-	return service.name
+// Name implements Application.Service Name method
+func (app *BaseService) Name() string {
+	return app.name
 }
 
-// Configurator implements Service Configurator method
-func (service *BaseService) Configurator() config.Configurator {
-	return service.configurator
-}
-
-// Init implements Service Init method
-func (service *BaseService) Init() error {
+// Init implements Application.Service Init method
+func (app *BaseService) Init() error {
+	defaultSource := build.Name() + ".conf"
+	err := config.Init(flag.CommandLine, app.cfg, config.WithDefaultSource(defaultSource))
+	if err != nil {
+		return err
+	}
+	name, source := app.cfg.GetDiscovery()
+	if name != "" {
+		d, err := discovery.Open(name, source)
+		if err != nil {
+			return err
+		}
+		app.discovery = d
+		var discoveredContent []byte
+		if dcfg, ok := app.cfg.(config.Discoverable); ok {
+			discoveredContent, err = dcfg.DiscoveredContent()
+		} else {
+			discoveredContent, err = json.Marshal(app.cfg)
+		}
+		if err != nil {
+			return err
+		}
+		if err := app.discovery.Register(app.name, app.id, discoveredContent); err != nil {
+			return nil
+		}
+	}
 	return nil
 }
 
-// Start implements Service Start method
-func (service *BaseService) Start() error {
-	return nil
+// Start implements Application.Service Start method
+func (app *BaseService) Start() {
+	app.components.Start()
 }
 
-// Shutdown implements Service Shutdown method
-func (service *BaseService) Shutdown() error {
-	return nil
+// Shutdown implements Application.Service Shutdown method
+func (app *BaseService) Shutdown() {
+	app.components.Shutdown()
+}
+
+// Update updates per frame
+func (app *BaseService) Update(now time.Time, dt time.Duration) {
+	app.components.Update(now, dt)
 }

@@ -5,3 +5,7 @@
 .vs/
 .vscode/
 .idea/
+*.exe
+
+/cmd/gated/gated
+/cmd/gated/gated.json
