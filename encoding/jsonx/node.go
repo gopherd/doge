@@ -59,7 +59,7 @@ func outputNext(prefix string, w io.Writer, opt options) error {
 }
 
 func outputNodeTail(w io.Writer, n Node, topNode, lastNode bool, opt options) error {
-	if (opt.extraComma || !lastNode) && !topNode {
+	if (opt.supportExtraComma || !lastNode) && !topNode {
 		if _, err := fmt.Fprint(w, ","); err != nil {
 			return err
 		}
@@ -155,7 +155,7 @@ func (n *objectNode) output(prefix string, w io.Writer, opt options, topNode, la
 		}
 		key := child.key
 		// try quote key string with "
-		if len(key) > 0 && key[0] != '"' && !opt.unquotedKey {
+		if len(key) > 0 && key[0] != '"' && (!opt.supportUnquotedKey || !isIdent(key)) {
 			key = strconv.Quote(key)
 		}
 		if _, err := fmt.Fprint(w, key+":"); err != nil {

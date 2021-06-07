@@ -16,22 +16,22 @@ type options struct {
 	prefix, indent string
 	// c-style comment supported if supportComment is true
 	supportComment bool
-	// key should be unquoted if unquotedKey is true
-	unquotedKey bool
-	// extra comma could be insert to end of last node of object or array if extraComma is true
-	extraComma bool
+	// key could be unquoted if supportUnquotedKey is true
+	supportUnquotedKey bool
+	// extra comma could be insert to end of last node of object or array if supportExtraComma is true
+	supportExtraComma bool
 }
 
 func (opt options) clone(dst *options) {
 	dst.prefix = opt.prefix
 	dst.indent = opt.indent
 	dst.supportComment = opt.supportComment
-	dst.unquotedKey = opt.unquotedKey
-	dst.extraComma = opt.extraComma
+	dst.supportUnquotedKey = opt.supportUnquotedKey
+	dst.supportExtraComma = opt.supportExtraComma
 }
 
-// WithComment returns an option which sets supportComment true
-func WithComment() Option {
+// WithSupportComment returns an option which sets supportComment true
+func WithSupportComment() Option {
 	return func(opt *options) {
 		opt.supportComment = true
 	}
@@ -51,17 +51,17 @@ func WithIndent(indent string) Option {
 	}
 }
 
-// WithUnquotedKey returns an option which sets unquotedKey true
-func WithUnquotedKey() Option {
+// WithSupportUnquotedKey returns an option which sets unquotedKey true
+func WithSupportUnquotedKey() Option {
 	return func(opt *options) {
-		opt.unquotedKey = true
+		opt.supportUnquotedKey = true
 	}
 }
 
-// WithExtraComma returns an option which sets extraComma true
-func WithExtraComma() Option {
+// WithSupportExtraComma returns an option which sets extraComma true
+func WithSupportExtraComma() Option {
 	return func(opt *options) {
-		opt.extraComma = true
+		opt.supportExtraComma = true
 	}
 }
 

@@ -3,6 +3,7 @@ package jsonx
 import (
 	"fmt"
 	"text/scanner"
+	"unicode"
 
 	"github.com/gopherd/doge/encoding"
 )
@@ -17,6 +18,22 @@ const (
 	opAdd    = '+'
 	opSub    = '-'
 )
+
+func isIdent(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	for i, c := range s {
+		if !isIdentRune(c, i) {
+			return false
+		}
+	}
+	return true
+}
+
+func isIdentRune(ch rune, i int) bool {
+	return ch == '_' || unicode.IsLetter(ch) || unicode.IsDigit(ch) && i > 0
+}
 
 // parser parses json
 type parser struct {
@@ -87,9 +104,9 @@ func (p *parser) parseKey() (key string, err error) {
 	if p.Tok == scanner.EOF {
 		lit = "EOF"
 	}
-	if p.opt.unquotedKey {
-		if p.Tok != scanner.Ident {
-			err = fmt.Errorf("expect a identifier or `}`, but got %s at %v", lit, p.Pos)
+	if p.opt.supportUnquotedKey {
+		if p.Tok != scanner.Ident && p.Tok != scanner.String {
+			err = fmt.Errorf("expect a identifier, string or `}`, but got %s at %v", lit, p.Pos)
 		}
 	} else {
 		if p.Tok != scanner.String {
@@ -134,7 +151,7 @@ func (p *parser) parseObjectNode() (Node, error) {
 			}
 			comment = p.LineComment
 			// extra comma not allowed at last node of object but found
-			if !p.opt.extraComma && p.Tok == opRBrace {
+			if !p.opt.supportExtraComma && p.Tok == opRBrace {
 				return nil, fmt.Errorf("extra comma found at %v", pos)
 			}
 		}
@@ -171,7 +188,7 @@ func (p *parser) parseArrayNode() (Node, error) {
 				return nil, err
 			}
 			// extra comma not allowed at last node of array but found
-			if !p.opt.extraComma && p.Tok == opRBrack {
+			if !p.opt.supportExtraComma && p.Tok == opRBrack {
 				return nil, fmt.Errorf("extra comma found at %v", pos)
 			}
 		}

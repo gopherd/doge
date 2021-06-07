@@ -64,7 +64,11 @@ type BaseConfig struct {
 
 // Read implements Configurator Read method
 func (c *BaseConfig) Read(self Configurator, r io.Reader) error {
-	return jsonx.NewDecoder(r).Decode(self)
+	return jsonx.NewDecoder(r,
+		jsonx.WithSupportComment(),
+		jsonx.WithSupportExtraComma(),
+		jsonx.WithSupportUnquotedKey(),
+	).Decode(self)
 }
 
 // Write implements Configurator Write method
