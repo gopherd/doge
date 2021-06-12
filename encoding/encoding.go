@@ -3,6 +3,9 @@ package encoding
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"strconv"
+	"strings"
 	"text/scanner"
 )
 
@@ -55,7 +58,76 @@ func (p *Parser) errorHandler(s *scanner.Scanner, msg string) {
 	p.err = errors.New(msg + " at " + s.Pos().String())
 }
 
-func (p Parser) Err() error { return p.err }
+func (p *Parser) BeginPos() scanner.Position {
+	pos := p.Pos
+	pos.Column -= len(p.Lit)
+	return pos
+}
+
+func (p *Parser) StringLit() (string, error) {
+	return strconv.Unquote(p.Lit)
+}
+
+func (p *Parser) Err() error { return p.err }
+
+func (p *Parser) ExpectError(tokens ...rune) error {
+	var matched bool
+	for _, tok := range tokens {
+		if p.Tok == tok {
+			matched = true
+			break
+		}
+	}
+	if matched {
+		return nil
+	}
+	var expecting bytes.Buffer
+	for i := len(tokens) - 1; i >= 0; i-- {
+		if tokens[i] == scanner.EOF {
+			tokens = append(tokens[:i], tokens[i+1:]...)
+		}
+	}
+	if len(tokens) == 0 {
+		p.err = fmt.Errorf("%s: unexpected %q", p.BeginPos(), p.Lit)
+	} else {
+		for i, tok := range tokens {
+			if i > 0 {
+				if i+1 == len(tokens) {
+					expecting.WriteString(" or ")
+				} else {
+					expecting.WriteString(", ")
+				}
+			}
+			tokstr := scanner.TokenString(tok)
+			if tok != scanner.EOF && tok < 0 {
+				tokstr = strings.ToLower(tokstr)
+			}
+			expecting.WriteString(tokstr)
+		}
+		p.ExpectValue(expecting.String())
+	}
+	return p.err
+}
+
+func (p *Parser) ExpectValue(s string) error {
+	if p.Tok == scanner.EOF {
+		p.err = fmt.Errorf("%s: expecting %s", p.BeginPos(), s)
+	} else {
+		p.err = fmt.Errorf("%s: unexpected %q, expecting %s", p.BeginPos(), p.Lit, s)
+	}
+	return p.err
+}
+
+func (p *Parser) Expect(tokens ...rune) error {
+	err0 := p.ExpectError(tokens...)
+	err1 := p.Next() // make progress
+	if err0 == nil {
+		p.err = err0
+	} else {
+		p.err = err1
+	}
+	return p.err
+}
 
 func (p *Parser) Next() error {
 	p.LeadComment = nil

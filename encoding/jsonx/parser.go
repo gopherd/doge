@@ -47,18 +47,6 @@ func (p *parser) init(s *scanner.Scanner, opt options) error {
 	return p.Next()
 }
 
-func (p *parser) expect(tok rune) error {
-	if p.Tok == tok {
-		return p.Next() // make progress
-	}
-	lit := "`" + p.Lit + "`"
-	if p.Tok == scanner.EOF {
-		lit = "EOF"
-	}
-	err := fmt.Errorf("expect `%s`, but got %s at %s", string(tok), lit, p.Pos)
-	return err
-}
-
 func (p *parser) parseNode() (Node, error) {
 	switch p.Tok {
 	case opLBrace:
@@ -123,7 +111,7 @@ func (p *parser) parseKey() (key string, err error) {
 func (p *parser) parseObjectNode() (Node, error) {
 	doc := p.LeadComment
 	pos := p.Pos
-	if err := p.expect(opLBrace); err != nil {
+	if err := p.Expect(opLBrace); err != nil {
 		return nil, err
 	}
 	obj := newObjectNode()
@@ -135,7 +123,7 @@ func (p *parser) parseObjectNode() (Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := p.expect(opColon); err != nil {
+		if err := p.Expect(opColon); err != nil {
 			return nil, err
 		}
 		value, err := p.parseNode()
@@ -146,7 +134,7 @@ func (p *parser) parseObjectNode() (Node, error) {
 		comment := p.LineComment
 		if p.Tok != opRBrace {
 			pos := p.Pos
-			if err := p.expect(opComma); err != nil {
+			if err := p.Expect(opComma); err != nil {
 				return nil, err
 			}
 			comment = p.LineComment
@@ -158,7 +146,7 @@ func (p *parser) parseObjectNode() (Node, error) {
 		value.setComment(comment)
 		obj.addChild(key, value)
 	}
-	if err := p.expect(opRBrace); err != nil {
+	if err := p.Expect(opRBrace); err != nil {
 		return nil, err
 	}
 	obj.comment = p.LineComment
@@ -168,7 +156,7 @@ func (p *parser) parseObjectNode() (Node, error) {
 func (p *parser) parseArrayNode() (Node, error) {
 	doc := p.LeadComment
 	pos := p.Pos
-	if err := p.expect(opLBrack); err != nil {
+	if err := p.Expect(opLBrack); err != nil {
 		return nil, err
 	}
 	arr := newArrayNode()
@@ -184,7 +172,7 @@ func (p *parser) parseArrayNode() (Node, error) {
 		arr.addChild(value)
 		if p.Tok != opRBrack {
 			pos := p.Pos
-			if err := p.expect(opComma); err != nil {
+			if err := p.Expect(opComma); err != nil {
 				return nil, err
 			}
 			// extra comma not allowed at last node of array but found
@@ -193,7 +181,7 @@ func (p *parser) parseArrayNode() (Node, error) {
 			}
 		}
 	}
-	if err := p.expect(opRBrack); err != nil {
+	if err := p.Expect(opRBrack); err != nil {
 		return nil, err
 	}
 	arr.comment = p.LineComment

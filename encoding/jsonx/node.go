@@ -123,7 +123,7 @@ func (n objectNode) Value() interface{} {
 }
 
 func (n objectNode) IsEmpty() bool                { return len(n.children) == 0 }
-func (n objectNode) Kind() encoding.NodeKind      { return encoding.ObjectNode }
+func (n objectNode) Type() encoding.NodeType      { return encoding.Object }
 func (n objectNode) NumChild() int                { return len(n.children) }
 func (n objectNode) ByIndex(i int) (string, Node) { return n.children[i].key, n.children[i].value }
 func (n objectNode) ByKey(key string) Node {
@@ -211,7 +211,7 @@ func (n arrayNode) Value() interface{} {
 }
 
 func (n arrayNode) IsEmpty() bool                { return len(n.children) == 0 }
-func (n arrayNode) Kind() encoding.NodeKind      { return encoding.ArrayNode }
+func (n arrayNode) Type() encoding.NodeType      { return encoding.Array }
 func (n arrayNode) NumChild() int                { return len(n.children) }
 func (n arrayNode) ByIndex(i int) (string, Node) { return "", n.children[i] }
 func (n arrayNode) ByKey(key string) Node        { return nil }
@@ -252,7 +252,7 @@ func (n *arrayNode) output(prefix string, w io.Writer, opt options, topNode, las
 // literalNode represents a literal node, e.g. char,string,ident,float,int
 type literalNode struct {
 	nodebase
-	kind  encoding.NodeKind
+	kind  encoding.NodeType
 	value string
 }
 
@@ -265,15 +265,15 @@ func newLiteralNode(pos scanner.Position, tok rune, value string) (*literalNode,
 	}
 	switch tok {
 	case scanner.Char:
-		n.kind = encoding.CharNode
+		n.kind = encoding.Char
 	case scanner.String:
-		n.kind = encoding.StringNode
+		n.kind = encoding.String
 	case scanner.Float:
-		n.kind = encoding.FloatNode
+		n.kind = encoding.Float
 	case scanner.Int:
-		n.kind = encoding.IntNode
+		n.kind = encoding.Int
 	case scanner.Ident:
-		n.kind = encoding.IdentNode
+		n.kind = encoding.Ident
 	default:
 		return nil, fmt.Errorf("unexpected begin of json node %v at %v", value, pos)
 	}
@@ -282,19 +282,19 @@ func newLiteralNode(pos scanner.Position, tok rune, value string) (*literalNode,
 
 func (n literalNode) Value() interface{} {
 	switch n.kind {
-	case encoding.CharNode:
+	case encoding.Char:
 		value, _, _, _ := strconv.UnquoteChar(n.value, '\'')
 		return value
-	case encoding.StringNode:
+	case encoding.String:
 		value, _ := strconv.Unquote(n.value)
 		return value
-	case encoding.FloatNode:
+	case encoding.Float:
 		value, _ := strconv.ParseFloat(n.value, 64)
 		return value
-	case encoding.IntNode:
+	case encoding.Int:
 		value, _ := strconv.ParseInt(n.value, 0, 64)
 		return value
-	case encoding.IdentNode:
+	case encoding.Ident:
 		return n.value
 	default:
 		return nil
@@ -306,23 +306,23 @@ func (n literalNode) IsEmpty() bool {
 		return true
 	}
 	switch n.kind {
-	case encoding.CharNode:
+	case encoding.Char:
 		return n.value == `'\0'`
-	case encoding.StringNode:
+	case encoding.String:
 		return false
-	case encoding.FloatNode:
+	case encoding.Float:
 		value, _ := strconv.ParseFloat(n.value, 64)
 		return value == 0
-	case encoding.IntNode:
+	case encoding.Int:
 		return n.value == "0"
-	case encoding.IdentNode:
+	case encoding.Ident:
 		return false
 	default:
 		return false
 	}
 }
 
-func (n literalNode) Kind() encoding.NodeKind      { return n.kind }
+func (n literalNode) Type() encoding.NodeType      { return n.kind }
 func (n literalNode) NumChild() int                { return 0 }
 func (n literalNode) ByIndex(i int) (string, Node) { return "", nil }
 func (n literalNode) ByKey(key string) Node        { return nil }

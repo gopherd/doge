@@ -206,9 +206,9 @@ type Session struct {
 	writer  *bufio.Writer
 	handler SessionEventHandler
 
-	closed int32
-	err    error
-	once   sync.Once
+	started int32
+	closed  int32
+	err     error
 
 	mutex sync.Mutex
 	cond  *sync.Cond
@@ -238,30 +238,43 @@ func (s *Session) Conn() net.Conn {
 	return s.reader.conn
 }
 
-// Write implements io.Writer Write method
+// Write implements io.Writer Write method, this IS NOT thread-safe.
 func (s *Session) Write(p []byte) (n int, err error) {
 	if s.IsClosed() {
 		err = net.ErrClosed
 		return
 	}
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	n, err = s.pipe.Write(p)
-	if err != nil {
-		return
-	}
-	if s.pipe.Len() == n {
-		s.cond.Signal()
+	var (
+		size         = len(p)
+		maxWriteSize = s.pipe.PageSize() << 2
+	)
+
+	for n < size {
+		end := n + maxWriteSize
+		if end > size {
+			end = size
+		}
+		s.mutex.Lock()
+		var nn int
+		nn, err = s.pipe.Write(p[n:end])
+		buffered := s.pipe.Len()
+		s.mutex.Unlock()
+		n += nn
+		if err != nil {
+			return
+		}
+		if buffered == nn {
+			s.cond.Signal()
+		}
 	}
 	return
 }
 
-// Run runs the read/write loops, it will block until the session closed
-func (s *Session) Run() {
-	s.once.Do(s.run)
-}
-
-func (s *Session) run() {
+// Serve runs the read/write loops, it will block until the session closed
+func (s *Session) Serve() bool {
+	if !atomic.CompareAndSwapInt32(&s.started, 0, 1) {
+		return false
+	}
 	var (
 		readyWg sync.WaitGroup
 		closeWg sync.WaitGroup
@@ -282,6 +295,8 @@ func (s *Session) run() {
 	}
 	// close the underlying connection
 	s.reader.conn.Close()
+
+	return true
 }
 
 // IsClosed returns whether the session is closed
