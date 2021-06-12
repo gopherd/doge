@@ -7,7 +7,6 @@ import (
 // Message represents a message interface
 type Message interface {
 	Type() int32
-	Size() int
 }
 
 var (
@@ -25,9 +24,9 @@ var (
 //	import "github.com/gopherd/doge/proto"
 //
 //	func init() {
-//		proto.Register(BarType, "foo", func() proto.Message { return new(Bar) })
+//		proto.Register("foo", BarType, func() proto.Message { return new(Bar) })
 //	}
-func Register(typ int32, module string, creator func() Message) {
+func Register(module string, typ int32, creator func() Message) {
 	if creator == nil {
 		panic(fmt.Sprintf("proto: Register creator is nil for type", typ))
 	}

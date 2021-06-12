@@ -9,3 +9,6 @@
 
 /cmd/gated/gated
 /cmd/gated/gated.json
+
+# temp
+/io/memfs/

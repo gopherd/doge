@@ -9,9 +9,9 @@ import (
 	"github.com/mkideal/log"
 
 	"github.com/gopherd/doge/build"
-	"github.com/gopherd/doge/component"
 	"github.com/gopherd/doge/config"
 	"github.com/gopherd/doge/os/signal"
+	"github.com/gopherd/doge/service/component"
 	"github.com/gopherd/doge/service/discovery"
 )
 

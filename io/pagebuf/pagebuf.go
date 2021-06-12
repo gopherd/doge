@@ -10,6 +10,7 @@ const (
 	DefaultPageSize     = 1024
 )
 
+// PageBuffer ...
 type PageBuffer struct {
 	bits         int
 	mask         int
@@ -23,10 +24,12 @@ type PageBuffer struct {
 	}
 }
 
+// NewPageBuffer creates a PageBuffer with default options
 func NewPageBuffer() *PageBuffer {
 	return NewPageBufferSize(DefaultMaxIdlePages, DefaultPageSize)
 }
 
+// NewPageBufferSize creates a PageBuffer with specified options
 func NewPageBufferSize(maxIdlePages, pageSize int) *PageBuffer {
 	mask := pageSize - 1
 	if mask&pageSize != 0 {
@@ -35,14 +38,14 @@ func NewPageBufferSize(maxIdlePages, pageSize int) *PageBuffer {
 	if maxIdlePages <= 0 {
 		maxIdlePages = 2
 	}
-	bits := bits.OnesCount(uint(mask))
 	return &PageBuffer{
-		bits:         bits,
+		bits:         bits.OnesCount(uint(mask)),
 		mask:         mask,
 		maxIdlePages: maxIdlePages,
 	}
 }
 
+// Reset clears the buffer
 func (p *PageBuffer) Reset() {
 	p.off.page = 0
 	p.off.from = 0
@@ -54,14 +57,17 @@ func (p *PageBuffer) Reset() {
 	}
 }
 
+// Len returns the length of buffer
 func (p *PageBuffer) Len() int {
 	return p.size
 }
 
+// PageSize returns size per page
 func (p *PageBuffer) PageSize() int {
 	return p.mask + 1
 }
 
+// Format formats the buffer as a string
 func (p *PageBuffer) Format() string {
 	const hex = "0123456789abcdef"
 	if p.size == 0 {
