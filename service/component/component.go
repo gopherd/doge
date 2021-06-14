@@ -44,18 +44,15 @@ func (com *BaseComponent) Name() string {
 
 // Init implements Component Init method
 func (com *BaseComponent) Init() error {
-	com.Logger().Info("initializing component")
 	return nil
 }
 
 // Start implements Component Start method
 func (com *BaseComponent) Start() {
-	com.Logger().Info("starting component")
 }
 
 // Shutdown implements Component Shutdown method
 func (com *BaseComponent) Shutdown() {
-	com.Logger().Info("shutting down component")
 }
 
 // Update implements Component Update method
@@ -109,9 +106,12 @@ func (m *Manager) Get(i int) Component {
 // Init initializes all components
 func (m *Manager) Init() error {
 	for i := range m.components {
+		m.components[i].Logger().Info("component initializing")
 		if err := m.components[i].Init(); err != nil {
+			m.components[i].Logger().Info("component initialize error: %v", err)
 			return err
 		}
+		m.components[i].Logger().Info("component initialized")
 	}
 	return nil
 }
@@ -119,14 +119,18 @@ func (m *Manager) Init() error {
 // Start starts all components
 func (m *Manager) Start() {
 	for i := range m.components {
+		m.components[i].Logger().Info("component starting")
 		m.components[i].Start()
+		m.components[i].Logger().Info("component started")
 	}
 }
 
 // Shutdown shutdowns all components in reverse order
 func (m *Manager) Shutdown() {
 	for i := len(m.components) - 1; i >= 0; i-- {
+		m.components[i].Logger().Info("component shutting down")
 		m.components[i].Shutdown()
+		m.components[i].Logger().Info("component shutted down")
 	}
 }
 

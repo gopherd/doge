@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package testdata;
+
+option go_package = "proto/testdata";
+option optimize_for = LITE_RUNTIME;
+
+// @Type(99999999)
+message Testdata {
+    int32 version = 1;
+    int32 id = 2;
+	string name = 3;
+}

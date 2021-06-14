@@ -2,7 +2,6 @@ package netutil
 
 import (
 	"bufio"
-	"encoding/binary"
 	"errors"
 	"io"
 	"net"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gopherd/doge/io/pagebuf"
+	"github.com/gopherd/doge/proto"
 )
 
 const (
@@ -93,20 +93,6 @@ func (tr *timeoutReader) Read(p []byte) (n int, err error) {
 	return tr.conn.Read(p)
 }
 
-// Body represents a message body
-type Body interface {
-	io.ByteReader
-	io.Reader
-
-	// Len returns remain length of body
-	Len() int
-
-	// Peek returns the next n bytes without advancing the reader. The bytes stop
-	// being valid at the next read call. If Peek returns fewer than n bytes, it
-	// also returns an error explaining why the read is short.
-	Peek(n int) ([]byte, error)
-}
-
 type reader struct {
 	conn net.Conn
 	bufr *bufio.Reader
@@ -124,12 +110,12 @@ func newReader(conn net.Conn, timeout time.Duration) *reader {
 	}
 }
 
-// Len implements Body Len method, -1 returned if no limit
+// Len implements proto.Body Len method, -1 returned if no limit
 func (b *reader) Len() int {
 	return b.size
 }
 
-// Peek implements Body Peek method
+// Peek implements proto.Body Peek method
 func (b *reader) Peek(n int) ([]byte, error) {
 	if b.size >= 0 && b.size < n {
 		return nil, io.EOF
@@ -167,6 +153,11 @@ func (b *reader) Read(p []byte) (n int, err error) {
 	return
 }
 
+// Discard implements proto.Body Discard method
+func (b *reader) Discard(n int) (discarded int, err error) {
+	return b.bufr.Discard(n)
+}
+
 func (b *reader) discard() error {
 	if b.size <= 0 {
 		return nil
@@ -195,9 +186,9 @@ func WithTimeout(timeout time.Duration) Option {
 
 // SessionEventHandler handles session events
 type SessionEventHandler interface {
-	OnReady()                  // ready to read/write
-	OnClose(err error)         // session closed, err maybe nil
-	OnMessage(body Body) error // received a message
+	OnReady()                        // ready to read/write
+	OnClose(err error)               // session closed, err maybe nil
+	OnMessage(body proto.Body) error // received a message
 }
 
 // Session wraps network session
@@ -365,20 +356,17 @@ func (s *Session) underlyingWrite(p []byte) error {
 }
 
 func (s *Session) underlyingRead() error {
-	// read content length without limit
+	// read size of message body
 	s.reader.size = -1
-	contentLength, err := binary.ReadUvarint(s.reader)
+	size, err := proto.ReadSize(s.reader)
 	if err != nil {
 		return err
 	}
-	if contentLength > uint64(MaxContentLength) {
-		return ErrContentLengthOverflow
-	}
-
-	// handle the body with limit
-	s.reader.size = int(contentLength)
+	// handle the message body
+	s.reader.size = size
 	if err := s.handler.OnMessage(s.reader); err != nil {
 		return err
 	}
+	// discard unread bytes
 	return s.reader.discard()
 }
