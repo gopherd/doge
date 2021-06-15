@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"context"
 	"fmt"
 	"sync"
 )
@@ -8,13 +9,13 @@ import (
 // Discovery represents a interface for service discovery
 type Discovery interface {
 	// Register registers a service
-	Register(serviceName, serviceId string, content []byte) error
+	Register(ctx context.Context, serviceName, serviceId, content string) error
 	// Unregister unregisters a service
-	Unregister(serviceName, serviceId string) error
+	Unregister(ctx context.Context, serviceName, serviceId string) error
 	// Resolve resolves any one service by name
-	Resolve(serviceName string) ([]byte, error)
+	Resolve(ctx context.Context, serviceName string) (serviceId, content string, err error)
 	// Resolve resolves all services by name
-	ResolveAll(serviceName string) (map[string][]byte, error)
+	ResolveAll(ctx context.Context, serviceName string) (map[string]string, error)
 }
 
 // Driver is the interface that must be implemented by a discovery driver

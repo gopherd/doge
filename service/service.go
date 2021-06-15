@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"os"
@@ -138,7 +139,7 @@ func (app *BaseService) Init() error {
 		if err != nil {
 			return err
 		}
-		if err := app.discovery.Register(app.name, app.id, discoveredContent); err != nil {
+		if err := app.discovery.Register(context.Background(), app.name, app.id, string(discoveredContent)); err != nil {
 			return nil
 		}
 	}
