@@ -103,6 +103,10 @@ type Errors struct {
 	errors errorList
 }
 
+func (errs Errors) Len() int {
+	return len(errs.errors)
+}
+
 // Append appends err to list if e is non-nil
 func (errs *Errors) Append(err error) {
 	if err != nil {

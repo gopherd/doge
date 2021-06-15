@@ -26,7 +26,7 @@ var (
 // Type represents message type
 type Type = uint32
 
-// Body represents a message body
+// Body represents message body
 type Body interface {
 	io.ByteReader
 	io.Reader
