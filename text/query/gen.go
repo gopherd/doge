@@ -40,7 +40,7 @@ func (p *Parser) Err() error {
 }`
 
 const requiredTemplate = `
-func (p *Parser) %s(val *%s, key string) *Parser {
+func (p *Parser) Required%s(val *%s, key string) *Parser {
 	if p.next() {
 		v, err := Required%s(p.q, key)
 		if err != nil {
@@ -54,7 +54,7 @@ func (p *Parser) %s(val *%s, key string) *Parser {
 `
 
 const optionalTemplate = `
-func (p *Parser) %sOr(val *%s, key string, dft %s) *Parser {
+func (p *Parser) %s(val *%s, key string, dft %s) *Parser {
 	if p.next() {
 		v, err := %s(p.q, key, dft)
 		if err != nil {
@@ -68,7 +68,7 @@ func (p *Parser) %sOr(val *%s, key string, dft %s) *Parser {
 `
 
 const optionalStringTemplate = `
-func (p *Parser) %sOr(val *%s, key string, dft %s) *Parser {
+func (p *Parser) %s(val *%s, key string, dft %s) *Parser {
 	if p.next() {
 		*val = %s(p.q, key, dft)
 	}
@@ -77,7 +77,7 @@ func (p *Parser) %sOr(val *%s, key string, dft %s) *Parser {
 `
 
 const requiredExternalTemplate = `
-func (p *Parser) %s(val *%s.%s, key string) *Parser {
+func (p *Parser) Required%s(val *%s.%s, key string) *Parser {
 	if p.next() {
 		v, err := Required%s(p.q, key)
 		if err != nil {
@@ -91,7 +91,7 @@ func (p *Parser) %s(val *%s.%s, key string) *Parser {
 `
 
 const optionalExternalTemplate = `
-func (p *Parser) %sOr(val *%s.%s, key string, dft %s.%s) *Parser {
+func (p *Parser) %s(val *%s.%s, key string, dft %s.%s) *Parser {
 	if p.next() {
 		v, err := %s(p.q, key, dft)
 		if err != nil {
