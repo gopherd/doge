@@ -2,6 +2,8 @@
 package query
 
 import (
+	"time"
+
 	"github.com/gopherd/doge/erron"
 )
 
@@ -346,6 +348,30 @@ func (p *Parser) Float64(val *float64, key string) *Parser {
 func (p *Parser) Float64Or(val *float64, key string, dft float64) *Parser {
 	if p.next() {
 		v, err := Float64(p.q, key, dft)
+		if err != nil {
+			p.errors.Append(err)
+		} else {
+			*val = v
+		}
+	}
+	return p
+}
+
+func (p *Parser) Duration(val *time.Duration, key string) *Parser {
+	if p.next() {
+		v, err := RequiredDuration(p.q, key)
+		if err != nil {
+			p.errors.Append(err)
+		} else {
+			*val = v
+		}
+	}
+	return p
+}
+
+func (p *Parser) DurationOr(val *time.Duration, key string, dft time.Duration) *Parser {
+	if p.next() {
+		v, err := Duration(p.q, key, dft)
 		if err != nil {
 			p.errors.Append(err)
 		} else {

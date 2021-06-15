@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"time"
 )
 
 var (
@@ -39,8 +40,8 @@ func parseInt64(q Query, key string, required bool, dft int64) (int64, error) {
 	}
 }
 
-func parseUint64(r Query, key string, required bool, dft uint64) (uint64, error) {
-	if value, err := getArgument(r, key, required); err != nil {
+func parseUint64(q Query, key string, required bool, dft uint64) (uint64, error) {
+	if value, err := getArgument(q, key, required); err != nil {
 		return dft, err
 	} else {
 		if value == "" {
@@ -54,8 +55,8 @@ func parseUint64(r Query, key string, required bool, dft uint64) (uint64, error)
 	}
 }
 
-func parseFloat64(r Query, key string, required bool, dft float64) (float64, error) {
-	if value, err := getArgument(r, key, required); err != nil {
+func parseFloat64(q Query, key string, required bool, dft float64) (float64, error) {
+	if value, err := getArgument(q, key, required); err != nil {
 		return dft, err
 	} else {
 		if value == "" {
@@ -285,5 +286,21 @@ func JSON(q Query, key string, ptr interface{}) error {
 		return nil
 	} else {
 		return json.Unmarshal([]byte(value), ptr)
+	}
+}
+
+func RequiredDuration(q Query, key string) (time.Duration, error) {
+	if value, err := getArgument(q, key, true); err != nil {
+		return 0, err
+	} else {
+		return time.ParseDuration(value)
+	}
+}
+
+func Duration(q Query, key string, dft time.Duration) (time.Duration, error) {
+	if value, _ := getArgument(q, key, false); value == "" {
+		return dft, nil
+	} else {
+		return time.ParseDuration(value)
 	}
 }
