@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -19,21 +20,27 @@ const (
 
 // MarshalJSON implements json.Marshaler MarshalJSON method
 func (mode Mode) MarshalJSON() ([]byte, error) {
+	var s string
 	switch mode {
 	case Dev:
-		return []byte("dev"), nil
+		s = "dev"
 	case Preview:
-		return []byte("preview"), nil
+		s = "preview"
 	case Prod:
-		return []byte("prod"), nil
+		s = "prod"
 	default:
 		return nil, fmt.Errorf("unknown mode: %d", mode)
 	}
+	return json.Marshal(s)
 }
 
 // UnmarshalJSON implements json.Unmarshaler UnmarshalJSON method
 func (mode *Mode) UnmarshalJSON(data []byte) error {
-	switch strings.ToLower(string(data)) {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	switch strings.ToLower(s) {
 	case "dev":
 		*mode = Dev
 	case "preview":
