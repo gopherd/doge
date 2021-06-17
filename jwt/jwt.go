@@ -82,60 +82,83 @@ func (c Claims) Valid() error {
 	return vErr
 }
 
-// SignedToken signs the claims as a token string
-func SignedToken(keyId string, claims Claims) (string, error) {
-	var tok = jwt.NewWithClaims(jwt.SigningMethodES256, claims)
-	tok.Header["kid"] = keyId
-	return tok.SignedString(ecdsaKey)
+// Verifier ...
+type Verifier struct {
+	ecdsaPubkey *ecdsa.PublicKey
+	keyId       string
 }
 
-// VerifyToken parses and verifies the token string
-func VerifyToken(keyId, issuer, token string) (*Claims, error) {
+func NewVerifier(filename, keyId string) (*Verifier, error) {
+	key, err := loadPublicKey(filename)
+	if err != nil {
+		return nil, err
+	}
+	return &Verifier{
+		ecdsaPubkey: key,
+		keyId:       keyId,
+	}, nil
+}
+
+func (v *Verifier) Verify(issuer, token string) (*Claims, error) {
 	var claims = new(Claims)
 	_, err := jwt.ParseWithClaims(token, claims, func(tok *jwt.Token) (interface{}, error) {
 		kid, ok := tok.Header["kid"]
 		if !ok || kid == nil {
 			return nil, jwt.ErrInvalidKey
 		}
-		if s, ok := kid.(string); !ok || s != keyId {
+		if s, ok := kid.(string); !ok || s != v.keyId {
 			return nil, jwt.ErrInvalidKey
 		}
-		return &ecdsaKey.PublicKey, nil
+		return v.ecdsaPubkey, nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	if claims.VerifyIssuer(issuer, true) == false {
-		return nil, fmt.Errorf("token issuer mismatched")
+		return nil, fmt.Errorf("jwt: token issuer mismatched")
 	}
-
 	return claims, nil
 }
 
-var ecdsaKey *ecdsa.PrivateKey
-
-// LoadKeyFile loads private key file
-func LoadKeyFile(filename string) error {
-	key, err := parseAuthKeyFromFile(filename)
-	if err != nil {
-		return err
-	}
-	ecdsaKey = key
-	return nil
+// Signer
+type Signer struct {
+	Verifier
+	ecdsaKey *ecdsa.PrivateKey
 }
 
-func parseAuthKeyFromFile(filename string) (*ecdsa.PrivateKey, error) {
+func NewSigner(filename, keyId string) (*Signer, error) {
+	key, err := loadPrivateKey(filename)
+	if err != nil {
+		return nil, err
+	}
+	return &Signer{
+		Verifier: Verifier{
+			ecdsaPubkey: &key.PublicKey,
+			keyId:       keyId,
+		},
+		ecdsaKey: key,
+	}, nil
+}
+
+// Sign signs the claims as a token string
+func (s *Signer) Sign(claims *Claims) (string, error) {
+	var tok = jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+	tok.Header["kid"] = s.keyId
+	return tok.SignedString(s.ecdsaKey)
+}
+
+func loadPrivateKey(filename string) (*ecdsa.PrivateKey, error) {
 	bytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
-	return parseAuthKeyFromBytes(bytes)
+	return parsePrivateKey(bytes)
 }
 
-func parseAuthKeyFromBytes(bytes []byte) (*ecdsa.PrivateKey, error) {
+func parsePrivateKey(bytes []byte) (*ecdsa.PrivateKey, error) {
 	block, _ := pem.Decode(bytes)
 	if block == nil {
-		return nil, errors.New("invalid auth key file")
+		return nil, errors.New("jwt: invalid ecdsa private key file")
 	}
 	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
@@ -145,6 +168,31 @@ func parseAuthKeyFromBytes(bytes []byte) (*ecdsa.PrivateKey, error) {
 	case *ecdsa.PrivateKey:
 		return pk, nil
 	default:
-		return nil, errors.New("invalid ecdsa file")
+		return nil, errors.New("jwt: invalid ecdsa private key file")
+	}
+}
+
+func loadPublicKey(filename string) (*ecdsa.PublicKey, error) {
+	bytes, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	return parsePublicKey(bytes)
+}
+
+func parsePublicKey(bytes []byte) (*ecdsa.PublicKey, error) {
+	block, _ := pem.Decode(bytes)
+	if block == nil {
+		return nil, errors.New("jwt: invalid ecdsa private key file")
+	}
+	key, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	switch pk := key.(type) {
+	case *ecdsa.PublicKey:
+		return pk, nil
+	default:
+		return nil, errors.New("jwt: invalid ecdsa private key file")
 	}
 }
