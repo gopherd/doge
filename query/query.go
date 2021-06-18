@@ -2,25 +2,76 @@ package query
 
 import (
 	"encoding/json"
-	"errors"
 	"strconv"
 	"time"
 )
 
-var (
-	ErrInvalidInteger         = errors.New("invalid integer")
-	ErrInvalidFloatNumber     = errors.New("invalid float number")
-	ErrInvalidBoolean         = errors.New("invalid boolean")
-	ErrRequiredArgumentNotSet = errors.New("required argument not set")
-)
+type requiredArgumentNotSetError struct {
+	key string
+}
 
+func requiredArgumentNotSet(key string) *requiredArgumentNotSetError {
+	return &requiredArgumentNotSetError{key}
+}
+
+func (err *requiredArgumentNotSetError) Error() string {
+	return "required argument " + err.key + " not set"
+}
+
+type parseError struct {
+	key string
+	typ string
+	err error
+}
+
+func parseIntError(key string, err error) *parseError {
+	return &parseError{
+		key: key,
+		typ: "int",
+		err: err,
+	}
+}
+
+func parseUintError(key string, err error) *parseError {
+	return &parseError{
+		key: key,
+		typ: "uint",
+		err: err,
+	}
+}
+
+func parseFloatError(key string, err error) *parseError {
+	return &parseError{
+		key: key,
+		typ: "float",
+		err: err,
+	}
+}
+
+func parseBoolError(key string, err error) *parseError {
+	return &parseError{
+		key: key,
+		typ: "bool",
+		err: err,
+	}
+}
+
+func (err *parseError) Error() string {
+	return "parse " + err.key + " failed: " + err.err.Error()
+}
+
+func (err *parseError) Unwrap() error {
+	return err.err
+}
+
+// Query alias map[string][]string
 type Query = map[string][]string
 
 func getArgument(q Query, key string, required bool) (value string, err error) {
 	if vs := q[key]; len(vs) > 0 {
 		value = vs[0]
 	} else if required {
-		err = ErrRequiredArgumentNotSet
+		err = requiredArgumentNotSet(key)
 	}
 	return
 }
@@ -34,7 +85,7 @@ func parseInt64(q Query, key string, required bool, dft int64) (int64, error) {
 		}
 		x, err := strconv.ParseInt(value, 0, 64)
 		if err != nil {
-			return dft, ErrInvalidInteger
+			return dft, parseIntError(key, err)
 		}
 		return x, nil
 	}
@@ -49,7 +100,7 @@ func parseUint64(q Query, key string, required bool, dft uint64) (uint64, error)
 		}
 		x, err := strconv.ParseUint(value, 0, 64)
 		if err != nil {
-			return dft, ErrInvalidInteger
+			return dft, parseIntError(key, err)
 		}
 		return x, nil
 	}
@@ -64,7 +115,7 @@ func parseFloat64(q Query, key string, required bool, dft float64) (float64, err
 		}
 		x, err := strconv.ParseFloat(value, 64)
 		if err != nil {
-			return dft, ErrInvalidFloatNumber
+			return dft, parseFloatError(key, err)
 		}
 		return x, nil
 	}
@@ -247,7 +298,7 @@ func Bool(q Query, key string, dft bool) (bool, error) {
 		}
 		x, err := strconv.ParseBool(value)
 		if err != nil {
-			return dft, ErrInvalidBoolean
+			return dft, parseBoolError(key, err)
 		}
 		return x, nil
 	}
@@ -259,7 +310,7 @@ func RequiredBool(q Query, key string) (bool, error) {
 	} else {
 		x, err := strconv.ParseBool(value)
 		if err != nil {
-			return false, ErrInvalidBoolean
+			return false, parseBoolError(key, err)
 		}
 		return x, nil
 	}

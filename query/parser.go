@@ -2,17 +2,32 @@
 package query
 
 import (
+	"net/url"
 	"time"
 
 	"github.com/gopherd/doge/erron"
 )
 
+// Parser used to parse arguments like url
 type Parser struct {
 	errors erron.Errors
 	q      Query
 }
 
-func NewParser(q Query) *Parser {
+// Parse creates a parser by parsing raw query string
+func Parse(rawquery string) *Parser {
+	p := &Parser{}
+	q, err := url.ParseQuery(rawquery)
+	if err != nil {
+		p.errors.Append(err)
+	} else {
+		p.q = q
+	}
+	return p
+}
+
+// New creates a parser with a query object
+func New(q Query) *Parser {
 	return &Parser{
 		q: q,
 	}
@@ -22,10 +37,12 @@ func (p *Parser) next() bool {
 	return p.errors.Len() == 0
 }
 
+// Err returns all errors while parsing arguments
 func (p *Parser) Err() error {
 	return p.errors.All()
 }
 
+// RequiredInt parses required argument
 func (p *Parser) RequiredInt(val *int, key string) *Parser {
 	if p.next() {
 		v, err := RequiredInt(p.q, key)
@@ -38,6 +55,7 @@ func (p *Parser) RequiredInt(val *int, key string) *Parser {
 	return p
 }
 
+// Int parses argument
 func (p *Parser) Int(val *int, key string, dft int) *Parser {
 	if p.next() {
 		v, err := Int(p.q, key, dft)
@@ -50,6 +68,7 @@ func (p *Parser) Int(val *int, key string, dft int) *Parser {
 	return p
 }
 
+// RequiredInt8 parses required argument
 func (p *Parser) RequiredInt8(val *int8, key string) *Parser {
 	if p.next() {
 		v, err := RequiredInt8(p.q, key)
@@ -62,6 +81,7 @@ func (p *Parser) RequiredInt8(val *int8, key string) *Parser {
 	return p
 }
 
+// Int8 parses argument
 func (p *Parser) Int8(val *int8, key string, dft int8) *Parser {
 	if p.next() {
 		v, err := Int8(p.q, key, dft)
@@ -74,6 +94,7 @@ func (p *Parser) Int8(val *int8, key string, dft int8) *Parser {
 	return p
 }
 
+// RequiredInt16 parses required argument
 func (p *Parser) RequiredInt16(val *int16, key string) *Parser {
 	if p.next() {
 		v, err := RequiredInt16(p.q, key)
@@ -86,6 +107,7 @@ func (p *Parser) RequiredInt16(val *int16, key string) *Parser {
 	return p
 }
 
+// Int16 parses argument
 func (p *Parser) Int16(val *int16, key string, dft int16) *Parser {
 	if p.next() {
 		v, err := Int16(p.q, key, dft)
@@ -98,6 +120,7 @@ func (p *Parser) Int16(val *int16, key string, dft int16) *Parser {
 	return p
 }
 
+// RequiredInt32 parses required argument
 func (p *Parser) RequiredInt32(val *int32, key string) *Parser {
 	if p.next() {
 		v, err := RequiredInt32(p.q, key)
@@ -110,6 +133,7 @@ func (p *Parser) RequiredInt32(val *int32, key string) *Parser {
 	return p
 }
 
+// Int32 parses argument
 func (p *Parser) Int32(val *int32, key string, dft int32) *Parser {
 	if p.next() {
 		v, err := Int32(p.q, key, dft)
@@ -122,6 +146,7 @@ func (p *Parser) Int32(val *int32, key string, dft int32) *Parser {
 	return p
 }
 
+// RequiredInt64 parses required argument
 func (p *Parser) RequiredInt64(val *int64, key string) *Parser {
 	if p.next() {
 		v, err := RequiredInt64(p.q, key)
@@ -134,6 +159,7 @@ func (p *Parser) RequiredInt64(val *int64, key string) *Parser {
 	return p
 }
 
+// Int64 parses argument
 func (p *Parser) Int64(val *int64, key string, dft int64) *Parser {
 	if p.next() {
 		v, err := Int64(p.q, key, dft)
@@ -146,6 +172,7 @@ func (p *Parser) Int64(val *int64, key string, dft int64) *Parser {
 	return p
 }
 
+// RequiredUint parses required argument
 func (p *Parser) RequiredUint(val *uint, key string) *Parser {
 	if p.next() {
 		v, err := RequiredUint(p.q, key)
@@ -158,6 +185,7 @@ func (p *Parser) RequiredUint(val *uint, key string) *Parser {
 	return p
 }
 
+// Uint parses argument
 func (p *Parser) Uint(val *uint, key string, dft uint) *Parser {
 	if p.next() {
 		v, err := Uint(p.q, key, dft)
@@ -170,6 +198,7 @@ func (p *Parser) Uint(val *uint, key string, dft uint) *Parser {
 	return p
 }
 
+// RequiredUint8 parses required argument
 func (p *Parser) RequiredUint8(val *uint8, key string) *Parser {
 	if p.next() {
 		v, err := RequiredUint8(p.q, key)
@@ -182,6 +211,7 @@ func (p *Parser) RequiredUint8(val *uint8, key string) *Parser {
 	return p
 }
 
+// Uint8 parses argument
 func (p *Parser) Uint8(val *uint8, key string, dft uint8) *Parser {
 	if p.next() {
 		v, err := Uint8(p.q, key, dft)
@@ -194,6 +224,7 @@ func (p *Parser) Uint8(val *uint8, key string, dft uint8) *Parser {
 	return p
 }
 
+// RequiredUint16 parses required argument
 func (p *Parser) RequiredUint16(val *uint16, key string) *Parser {
 	if p.next() {
 		v, err := RequiredUint16(p.q, key)
@@ -206,6 +237,7 @@ func (p *Parser) RequiredUint16(val *uint16, key string) *Parser {
 	return p
 }
 
+// Uint16 parses argument
 func (p *Parser) Uint16(val *uint16, key string, dft uint16) *Parser {
 	if p.next() {
 		v, err := Uint16(p.q, key, dft)
@@ -218,6 +250,7 @@ func (p *Parser) Uint16(val *uint16, key string, dft uint16) *Parser {
 	return p
 }
 
+// RequiredUint32 parses required argument
 func (p *Parser) RequiredUint32(val *uint32, key string) *Parser {
 	if p.next() {
 		v, err := RequiredUint32(p.q, key)
@@ -230,6 +263,7 @@ func (p *Parser) RequiredUint32(val *uint32, key string) *Parser {
 	return p
 }
 
+// Uint32 parses argument
 func (p *Parser) Uint32(val *uint32, key string, dft uint32) *Parser {
 	if p.next() {
 		v, err := Uint32(p.q, key, dft)
@@ -242,6 +276,7 @@ func (p *Parser) Uint32(val *uint32, key string, dft uint32) *Parser {
 	return p
 }
 
+// RequiredUint64 parses required argument
 func (p *Parser) RequiredUint64(val *uint64, key string) *Parser {
 	if p.next() {
 		v, err := RequiredUint64(p.q, key)
@@ -254,6 +289,7 @@ func (p *Parser) RequiredUint64(val *uint64, key string) *Parser {
 	return p
 }
 
+// Uint64 parses argument
 func (p *Parser) Uint64(val *uint64, key string, dft uint64) *Parser {
 	if p.next() {
 		v, err := Uint64(p.q, key, dft)
@@ -266,6 +302,7 @@ func (p *Parser) Uint64(val *uint64, key string, dft uint64) *Parser {
 	return p
 }
 
+// RequiredBool parses required argument
 func (p *Parser) RequiredBool(val *bool, key string) *Parser {
 	if p.next() {
 		v, err := RequiredBool(p.q, key)
@@ -278,6 +315,7 @@ func (p *Parser) RequiredBool(val *bool, key string) *Parser {
 	return p
 }
 
+// Bool parses argument
 func (p *Parser) Bool(val *bool, key string, dft bool) *Parser {
 	if p.next() {
 		v, err := Bool(p.q, key, dft)
@@ -290,6 +328,7 @@ func (p *Parser) Bool(val *bool, key string, dft bool) *Parser {
 	return p
 }
 
+// RequiredString parses required argument
 func (p *Parser) RequiredString(val *string, key string) *Parser {
 	if p.next() {
 		v, err := RequiredString(p.q, key)
@@ -302,6 +341,7 @@ func (p *Parser) RequiredString(val *string, key string) *Parser {
 	return p
 }
 
+// String parses argument
 func (p *Parser) String(val *string, key string, dft string) *Parser {
 	if p.next() {
 		*val = String(p.q, key, dft)
@@ -309,6 +349,7 @@ func (p *Parser) String(val *string, key string, dft string) *Parser {
 	return p
 }
 
+// RequiredFloat32 parses required argument
 func (p *Parser) RequiredFloat32(val *float32, key string) *Parser {
 	if p.next() {
 		v, err := RequiredFloat32(p.q, key)
@@ -321,6 +362,7 @@ func (p *Parser) RequiredFloat32(val *float32, key string) *Parser {
 	return p
 }
 
+// Float32 parses argument
 func (p *Parser) Float32(val *float32, key string, dft float32) *Parser {
 	if p.next() {
 		v, err := Float32(p.q, key, dft)
@@ -333,6 +375,7 @@ func (p *Parser) Float32(val *float32, key string, dft float32) *Parser {
 	return p
 }
 
+// RequiredFloat64 parses required argument
 func (p *Parser) RequiredFloat64(val *float64, key string) *Parser {
 	if p.next() {
 		v, err := RequiredFloat64(p.q, key)
@@ -345,6 +388,7 @@ func (p *Parser) RequiredFloat64(val *float64, key string) *Parser {
 	return p
 }
 
+// Float64 parses argument
 func (p *Parser) Float64(val *float64, key string, dft float64) *Parser {
 	if p.next() {
 		v, err := Float64(p.q, key, dft)
@@ -357,6 +401,7 @@ func (p *Parser) Float64(val *float64, key string, dft float64) *Parser {
 	return p
 }
 
+// RequiredDuration parses required argument
 func (p *Parser) RequiredDuration(val *time.Duration, key string) *Parser {
 	if p.next() {
 		v, err := RequiredDuration(p.q, key)
@@ -369,6 +414,7 @@ func (p *Parser) RequiredDuration(val *time.Duration, key string) *Parser {
 	return p
 }
 
+// Duration parses argument
 func (p *Parser) Duration(val *time.Duration, key string, dft time.Duration) *Parser {
 	if p.next() {
 		v, err := Duration(p.q, key, dft)
