@@ -2,14 +2,24 @@ package discovery
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 )
 
+// ErrExist represents an error in case of id already existed.
+var ErrExist = errors.New("discovery: id exist")
+
+// IsExist reports whether the err is ErrExist
+func IsExist(err error) bool {
+	return errors.Is(err, ErrExist)
+}
+
 // Discovery represents a interface for service discovery
 type Discovery interface {
-	// Register registers a service
-	Register(ctx context.Context, name, id, content string) error
+	// Register registers a service, if nx is true, the id must not exist.
+	// Otherwise, ErrExist returned.
+	Register(ctx context.Context, name, id, content string, nx bool) error
 	// Unregister unregisters a service
 	Unregister(ctx context.Context, name, id string) error
 	// Resolve resolves any one service by name

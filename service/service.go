@@ -139,7 +139,13 @@ func (app *BaseService) Init() error {
 		if err != nil {
 			return err
 		}
-		if err := app.discovery.Register(context.Background(), app.name, app.id, string(discoveredContent)); err != nil {
+		if err := app.discovery.Register(
+			context.Background(),
+			app.name,
+			app.id,
+			string(discoveredContent),
+			false,
+		); err != nil {
 			return nil
 		}
 	}
