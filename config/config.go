@@ -62,7 +62,7 @@ type BaseConfig struct {
 	Core struct {
 		Project   string          `json:"project"`
 		Mode      Mode            `json:"mode"`
-		ID        int             `json:"id"`
+		ID        int64           `json:"id"`
 		FPS       int             `json:"fps"`
 		Log       LogConfig       `json:"log"`
 		MQ        MQConfig        `json:"mq"`
@@ -97,12 +97,25 @@ func (c *BaseConfig) GetDiscovery() (name, source string) {
 	return c.Core.Discovery.Name, c.Core.Discovery.Source
 }
 
+func (c *BaseConfig) GetID() int64 {
+	return c.Core.ID
+}
+
+// GetLog returns the log configuration
+func (c *BaseConfig) GetLog() LogConfig {
+	return c.Core.Log
+}
+
 // LogConfig represents configuration of log
 type LogConfig struct {
 	// Level of log
 	Level string `json:"level"`
 	// Prefix to preappend to each log message
 	Prefix string `json:"prefix"`
+	// Flags of log printer, @see githug.com/mkideal/log@Flags.
+	// -1: no flags
+	//  0: default flags
+	Flags int `json:"flags"`
 
 	// Writers specified multi-writers, like:
 	//	[

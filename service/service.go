@@ -6,8 +6,10 @@ import (
 	"flag"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/mkideal/log"
 
 	"github.com/gopherd/doge/build"
@@ -44,8 +46,10 @@ func (state State) String() string {
 type DiscoveryContent struct {
 	Config interface{} `json:"config"` // config of service
 	State  struct {
-		PID   int   `json:"pid"`   // process id
-		State State `json:"state"` // run state
+		Updated int64  `json:"updated"`
+		PID     int    `json:"pid"`   // process id
+		State   State  `json:"state"` // run state
+		UUID    string `json:"uuid"`  // instance uuid
 	} `json:"state"` // runtime state of service
 }
 
@@ -55,6 +59,8 @@ type Service interface {
 	ID() int64
 	// Name of service
 	Name() string
+	// Global unique instance id of service
+	UUID() string
 	// SetState sets state of service
 	SetState(state State) error
 	// Busy reports whether the service is busy
@@ -84,14 +90,8 @@ func Run(app Service) {
 var pid = os.Getpid()
 
 func exec(app Service) error {
-	log.Start(
-		log.WithConsle(),
-		log.WithLevel(log.LvDEBUG),
-		log.WithPrefix(build.Name()),
-	)
 	defer log.Shutdown()
 
-	log.Info().Int("pid", pid).Print("initializing service")
 	if err := app.Init(); err != nil {
 		return err
 	}
@@ -134,17 +134,21 @@ func exec(app Service) error {
 
 // BaseService implements Service
 type BaseService struct {
-	name       string
-	id         int64
-	state      State
-	cfg        config.Configurator
-	discovery  discovery.Discovery
-	components *component.Manager
+	name              string
+	id                int64
+	uuid              string
+	state             State
+	cfg               config.Configurator
+	discovery         discovery.Discovery
+	force             bool
+	components        *component.Manager
+	lastKeepaliveTime time.Time
 }
 
 // NewBaseService creates a BaseService
 func NewBaseService(cfg config.Configurator) *BaseService {
 	return &BaseService{
+		uuid:       strings.ReplaceAll(uuid.NewString(), "-", ""),
 		cfg:        cfg,
 		components: component.NewManager(),
 	}
@@ -174,10 +178,15 @@ func (app *BaseService) ID() int64 {
 	return app.id
 }
 
+// UUID implements service UUID method
+func (app *BaseService) UUID() string {
+	return app.uuid
+}
+
 // SetState implements Service SetState method
 func (app *BaseService) SetState(state State) error {
 	app.state = state
-	return app.register()
+	return app.register(state == Running)
 }
 
 // State returns state of service
@@ -195,11 +204,15 @@ func (app *BaseService) Discovery() discovery.Discovery {
 	return app.discovery
 }
 
-func (app *BaseService) register() error {
+const keepalive = 5 * 1000
+
+func (app *BaseService) register(nx bool) error {
 	if app.discovery == nil {
 		return nil
 	}
 	var content DiscoveryContent
+	now := time.Now().UnixNano() / 1e6
+	content.State.Updated = now
 	content.State.PID = pid
 	content.State.State = app.state
 	if d, ok := app.cfg.(config.Discoverable); ok {
@@ -211,13 +224,51 @@ func (app *BaseService) register() error {
 	if err != nil {
 		return err
 	}
-	return app.discovery.Register(
-		context.Background(),
-		app.name,
-		strconv.FormatInt(app.id, 10),
-		string(data),
-		false,
-	)
+	id := strconv.FormatInt(app.id, 10)
+	err = app.discovery.Register(context.Background(), app.name, id, string(data), nx)
+	if err != nil {
+		if discovery.IsExist(err) {
+			loaded, err := app.discovery.Find(context.Background(), app.name, id)
+			if err != nil {
+				return err
+			}
+			var old DiscoveryContent
+			if err := json.Unmarshal([]byte(loaded), &old); err != nil {
+				return err
+			}
+			closed := old.State.State == Closed
+			expired := old.State.Updated+2*keepalive < now
+			if !closed {
+				if expired {
+					if !app.force {
+						log.Error().
+							String("name", app.name).
+							Int64("id", app.id).
+							String("uuid", app.uuid).
+							Print("service found and not closed but expired, you can startup with command line flag -F")
+						return erron.New("service not closed")
+					}
+					log.Warn().
+						String("name", app.name).
+						Int64("id", app.id).
+						Print("force startup service")
+				} else {
+					log.Warn().
+						String("name", app.name).
+						Int64("id", app.id).
+						Print("service not closed, stop it first!")
+					return erron.New("service not closed")
+				}
+			}
+			if err := app.discovery.Unregister(context.Background(), app.name, id); err != nil {
+				return err
+			}
+			return app.discovery.Register(context.Background(), app.name, id, string(data), nx)
+		} else {
+			return err
+		}
+	}
+	return nil
 }
 
 func (app *BaseService) unregister() error {
@@ -230,10 +281,41 @@ func (app *BaseService) unregister() error {
 // Init implements Service Init method
 func (app *BaseService) Init() error {
 	defaultSource := build.Name() + ".conf"
+	flag.CommandLine.BoolVar(&app.force, "F", false, "Whether force startup service while it not closed but expired")
 	err := config.Init(flag.CommandLine, app.cfg, config.WithDefaultSource(defaultSource))
 	if err != nil {
 		return erron.Throw(err)
 	}
+	if x, ok := app.cfg.(interface{ GetID() int64 }); ok {
+		app.id = x.GetID()
+	}
+	if x, ok := app.cfg.(interface{ GetLog() config.LogConfig }); ok {
+		logcfg := x.GetLog()
+		level, ok := log.ParseLevel(logcfg.Level)
+		if !ok {
+			level = log.LvINFO
+		}
+		prefix := logcfg.Prefix
+		if prefix == "" {
+			prefix = build.Name()
+		}
+		var options []log.Option
+		// TODO: writer from logcfg.Writers
+		options = append(options, log.WithConsle())
+		options = append(options, log.WithLevel(level))
+		options = append(options, log.WithPrefix(prefix))
+		if logcfg.Flags < 0 {
+			options = append(options, log.WithFlags(0))
+		} else if logcfg.Flags > 0 {
+			options = append(options, log.WithFlags(logcfg.Flags))
+		}
+		log.Start(options...)
+	}
+	log.Info().
+		Int("pid", pid).
+		Int64("id", app.id).
+		String("uuid", app.uuid).
+		Print("initializing service")
 	name, source := app.cfg.GetDiscovery()
 	if name != "" {
 		d, err := discovery.Open(name, source)
@@ -259,4 +341,8 @@ func (app *BaseService) Shutdown() {
 // Update updates per frame
 func (app *BaseService) Update(now time.Time, dt time.Duration) {
 	app.components.Update(now, dt)
+	if now.Sub(app.lastKeepaliveTime) > time.Duration(keepalive)*time.Millisecond {
+		app.lastKeepaliveTime = now
+		app.register(false)
+	}
 }

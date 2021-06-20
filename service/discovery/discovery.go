@@ -22,6 +22,8 @@ type Discovery interface {
 	Register(ctx context.Context, name, id, content string, nx bool) error
 	// Unregister unregisters a service
 	Unregister(ctx context.Context, name, id string) error
+	// Find finds service by name and id
+	Find(ctx context.Context, name, id string) (content string, err error)
 	// Resolve resolves any one service by name
 	Resolve(ctx context.Context, name string) (id, content string, err error)
 	// Resolve resolves all services by name
