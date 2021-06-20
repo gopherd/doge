@@ -4,6 +4,14 @@ github.com/golang/protobuf v1.5.0/go.mod h1:FsONVRAS9T7sI+LIUmWTfcYkHO4aIWwzhcaS
 github.com/google/go-cmp v0.5.5/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/mkideal/log v1.1.4 h1:BhAfUq2a4EoneunirOljjx2BJeerCrDyPAmJpEaPJuc=
 github.com/mkideal/log v1.1.4/go.mod h1:bwJLh4/erFDLJIU84rABrccbGmpnbGuchNLC5azJof4=
+github.com/mkideal/log v1.1.5 h1:uWQ7FCbpKiant0l1E4o3gFuI8IJNmN1qhxXBrpAZ5AY=
+github.com/mkideal/log v1.1.5/go.mod h1:bwJLh4/erFDLJIU84rABrccbGmpnbGuchNLC5azJof4=
+github.com/mkideal/log v1.1.6 h1:K3AVOv6Ouvs+X9SYfeoe/agApUN1FS4igjL3zsUI4as=
+github.com/mkideal/log v1.1.6/go.mod h1:bwJLh4/erFDLJIU84rABrccbGmpnbGuchNLC5azJof4=
+github.com/mkideal/log v1.1.7 h1:1JW2zO6GRji3j8pydRw9qiPeQNOWt4vS1B4N5NV7SpE=
+github.com/mkideal/log v1.1.7/go.mod h1:bwJLh4/erFDLJIU84rABrccbGmpnbGuchNLC5azJof4=
+github.com/mkideal/log v1.1.8 h1:cF9tjWywTQXcWbbm/Jz3HFvhJHZ+7cBEWqRqAXGVH44=
+github.com/mkideal/log v1.1.8/go.mod h1:bwJLh4/erFDLJIU84rABrccbGmpnbGuchNLC5azJof4=
 golang.org/x/net v0.0.0-20210510120150-4163338589ed h1:p9UgmWI9wKpfYmgaV/IZKGdXc5qEK45tDwwwDyjS26I=
 golang.org/x/net v0.0.0-20210510120150-4163338589ed/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
 golang.org/x/sys v0.0.0-20201119102817-f84b799fce68/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=

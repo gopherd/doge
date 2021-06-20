@@ -82,7 +82,7 @@ func (server *TCPServer) ListenAndServe(async bool, keepalive time.Duration, cer
 		if l, ok := listener.(*net.TCPListener); ok {
 			listener = NewTCPKeepAliveListener(l, keepalive)
 		} else {
-			log.Warn("TCPServer.ListenAndServe: keepalive is not supported")
+			log.Warn().Print("TCPServer.ListenAndServe: keepalive is not supported")
 		}
 	}
 	server.listener = listener
@@ -103,24 +103,42 @@ func listenTCP(addr string) (*net.TCPListener, error) {
 }
 
 func serve(listener net.Listener, handler ConnHandler, async bool) error {
-	serveFunc := func() {
+	serveFunc := func() error {
+		var tempDelay time.Duration // how long to sleep on accept failure
 		for {
 			conn, err := listener.Accept()
 			if err != nil {
-				log.Info("accept connection: %v", err)
-				return
+				if ne, ok := err.(net.Error); ok && ne.Temporary() {
+					if tempDelay == 0 {
+						tempDelay = 5 * time.Millisecond
+					} else {
+						tempDelay *= 2
+					}
+					if max := 1 * time.Second; tempDelay > max {
+						tempDelay = max
+					}
+					log.Info().
+						Error("error", err).
+						String("delay", tempDelay.String()).
+						Print("accept connection error, retrying")
+					time.Sleep(tempDelay)
+					continue
+				}
+				return err
 			}
+			tempDelay = 0
 			var ip string
 			if addr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
 				ip = addr.IP.String()
 			}
 			go handler(ip, conn)
 		}
+		return nil
 	}
 	if async {
 		go serveFunc()
 	} else {
-		serveFunc()
+		return serveFunc()
 	}
 	return nil
 }

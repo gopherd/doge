@@ -90,9 +90,9 @@ func (httpd *HTTPServer) ListenAndServe(async bool) error {
 		go func() {
 			if err := httpd.server.Serve(l2); err != nil {
 				if err == http.ErrServerClosed {
-					log.Info("http server closed")
+					log.Info().Print("http server closed")
 				} else {
-					log.Error("http server error: %v", err)
+					log.Error().Error("error", err).Print("http server")
 				}
 			}
 		}()
@@ -122,7 +122,7 @@ func (httpd *HTTPServer) Handle(pattern string, handler http.Handler, middleware
 	httpd.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt64(&httpd.numHandling, 1)
 		defer atomic.AddInt64(&httpd.numHandling, -1)
-		log.Debug("%s - %s %s %q %q", IP(r), r.Proto, r.Method, r.URL.Path, r.UserAgent())
+		log.Printf(log.LvDEBUG, "%s - %s %s %q %q", IP(r), r.Proto, r.Method, r.URL.Path, r.UserAgent())
 		w.Header().Add("Connection", "Keep-alive")
 		w.Header().Add("Access-Control-Allow-Origin", "*")
 		w.Header().Add("Keep-alive", "30")
@@ -133,9 +133,9 @@ func (httpd *HTTPServer) Handle(pattern string, handler http.Handler, middleware
 func (httpd *HTTPServer) JSONResponse(w http.ResponseWriter, r *http.Request, data interface{}, options ...ResponseOptions) {
 	if data != nil {
 		if e, ok := data.(error); ok {
-			log.Printf(2, log.LvINFO, "%s - %s %s %q response an application error: %e", IP(r), r.Proto, r.Method, r.URL.Path, e.Error())
+			log.Log(2, log.LvINFO, "http", "%s - %s %s %q response an application error: %e", IP(r), r.Proto, r.Method, r.URL.Path, e.Error())
 		} else {
-			log.Trace("%s - %s %s %q response json", IP(r), r.Proto, r.Method, r.URL.Path)
+			log.Log(2, log.LvTRACE, "http", "%s - %s %s %q response json", IP(r), r.Proto, r.Method, r.URL.Path)
 		}
 	}
 	JSONResponse(w, data, options...)

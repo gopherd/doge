@@ -19,21 +19,21 @@ type Component interface {
 	Shutdown()
 	// Update updates the component per frame
 	Update(time.Time, time.Duration)
-	// Logger returns a logger interface
-	Logger() log.Logger
+	// Logger returns a prefix logger
+	Logger() log.Prefix
 }
 
 // BaseComponent implements the Component interface{}
 type BaseComponent struct {
 	name   string
-	logger log.Logger
+	logger log.Prefix
 }
 
 // NewBaseComponent creates a BaseComponent
 func NewBaseComponent(name string) *BaseComponent {
 	return &BaseComponent{
 		name:   name,
-		logger: log.NewLogger(name),
+		logger: log.Prefix(name),
 	}
 }
 
@@ -60,7 +60,7 @@ func (com *BaseComponent) Update(now time.Time, dt time.Duration) {
 }
 
 // Logger implements Component Logger method
-func (com *BaseComponent) Logger() log.Logger {
+func (com *BaseComponent) Logger() log.Prefix {
 	return com.logger
 }
 
@@ -106,12 +106,12 @@ func (m *Manager) Get(i int) Component {
 // Init initializes all components
 func (m *Manager) Init() error {
 	for i := range m.components {
-		m.components[i].Logger().Info("component initializing")
+		m.components[i].Logger().Info().Print("component initializing")
 		if err := m.components[i].Init(); err != nil {
-			m.components[i].Logger().Info("component initialize error: %v", err)
+			m.components[i].Logger().Info().Error("error", err).Print("component initialize error")
 			return err
 		}
-		m.components[i].Logger().Info("component initialized")
+		m.components[i].Logger().Info().Print("component initialized")
 	}
 	return nil
 }
@@ -119,18 +119,18 @@ func (m *Manager) Init() error {
 // Start starts all components
 func (m *Manager) Start() {
 	for i := range m.components {
-		m.components[i].Logger().Info("component starting")
+		m.components[i].Logger().Info().Print("component starting")
 		m.components[i].Start()
-		m.components[i].Logger().Info("component started")
+		m.components[i].Logger().Info().Print("component started")
 	}
 }
 
 // Shutdown shutdowns all components in reverse order
 func (m *Manager) Shutdown() {
 	for i := len(m.components) - 1; i >= 0; i-- {
-		m.components[i].Logger().Info("component shutting down")
+		m.components[i].Logger().Info().Print("component shutting down")
 		m.components[i].Shutdown()
-		m.components[i].Logger().Info("component shutted down")
+		m.components[i].Logger().Info().Print("component shutted down")
 	}
 }
 

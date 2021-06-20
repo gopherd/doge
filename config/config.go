@@ -60,6 +60,7 @@ type BaseConfig struct {
 
 	// Core represents core common fields
 	Core struct {
+		Project   string          `json:"project"`
 		Mode      Mode            `json:"mode"`
 		ID        int             `json:"id"`
 		FPS       int             `json:"fps"`
