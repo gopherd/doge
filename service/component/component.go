@@ -9,7 +9,7 @@ import (
 
 // Component represents a generic logic component
 type Component interface {
-	// Name returns name of component
+	// Name returns the name of component
 	Name() string
 	// Init initializes the component
 	Init() error
@@ -19,8 +19,6 @@ type Component interface {
 	Shutdown()
 	// Update updates the component per frame
 	Update(time.Time, time.Duration)
-	// Logger returns a prefix logger
-	Logger() log.Prefix
 }
 
 // BaseComponent implements the Component interface{}
@@ -59,7 +57,7 @@ func (com *BaseComponent) Shutdown() {
 func (com *BaseComponent) Update(now time.Time, dt time.Duration) {
 }
 
-// Logger implements Component Logger method
+// Logger returns the component logger
 func (com *BaseComponent) Logger() log.Prefix {
 	return com.logger
 }
@@ -67,29 +65,35 @@ func (com *BaseComponent) Logger() log.Prefix {
 // Manager used to manages a group of components
 type Manager struct {
 	components      []Component
-	type2components map[reflect.Type]Component
+	type2components map[reflect.Type][]Component
 }
 
 // NewManager creates a Manager
 func NewManager() *Manager {
 	return &Manager{
-		type2components: make(map[reflect.Type]Component),
+		type2components: make(map[reflect.Type][]Component),
 	}
 }
 
 // Add adds a component to the manager
 func (m *Manager) Add(com Component) Component {
 	t := reflect.TypeOf(com).Elem()
-	if _, found := m.type2components[t]; found {
-		panic("component type " + t.String() + " duplicated")
-	}
+	m.type2components[t] = append(m.type2components[t], com)
 	m.components = append(m.components, com)
-	m.type2components[t] = com
 	return com
 }
 
-// Find finds a component from the manager by type
+// Find finds the first added component from the manager by type
 func (m *Manager) Find(t reflect.Type) Component {
+	coms, ok := m.type2components[t]
+	if !ok || len(coms) == 0 {
+		return nil
+	}
+	return coms[0]
+}
+
+// FindAll finds all components from the manager by type
+func (m *Manager) FindAll(t reflect.Type) []Component {
 	return m.type2components[t]
 }
 
@@ -105,32 +109,36 @@ func (m *Manager) Get(i int) Component {
 
 // Init initializes all components
 func (m *Manager) Init() error {
-	for i := range m.components {
-		m.components[i].Logger().Info().Print("component initializing")
-		if err := m.components[i].Init(); err != nil {
-			m.components[i].Logger().Info().Error("error", err).Print("component initialize error")
+	for _, com := range m.components {
+		name := com.Name()
+		log.Prefix(name).Info().Print("component initializing")
+		if err := com.Init(); err != nil {
+			log.Prefix(name).Info().Error("error", err).Print("component initialize error")
 			return err
 		}
-		m.components[i].Logger().Info().Print("component initialized")
+		log.Prefix(name).Info().Print("component initialized")
 	}
 	return nil
 }
 
 // Start starts all components
 func (m *Manager) Start() {
-	for i := range m.components {
-		m.components[i].Logger().Info().Print("component starting")
-		m.components[i].Start()
-		m.components[i].Logger().Info().Print("component started")
+	for _, com := range m.components {
+		name := com.Name()
+		log.Prefix(name).Info().Print("component starting")
+		com.Start()
+		log.Prefix(name).Info().Print("component started")
 	}
 }
 
 // Shutdown shutdowns all components in reverse order
 func (m *Manager) Shutdown() {
 	for i := len(m.components) - 1; i >= 0; i-- {
-		m.components[i].Logger().Info().Print("component shutting down")
-		m.components[i].Shutdown()
-		m.components[i].Logger().Info().Print("component shutted down")
+		com := m.components[i]
+		name := com.Name()
+		log.Prefix(name).Info().Print("component shutting down")
+		com.Shutdown()
+		log.Prefix(name).Info().Print("component shutted down")
 	}
 }
 

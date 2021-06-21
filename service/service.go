@@ -289,6 +289,9 @@ func (app *BaseService) Init() error {
 	if x, ok := app.cfg.(interface{ GetID() int64 }); ok {
 		app.id = x.GetID()
 	}
+	if app.id <= 0 {
+		return erron.New("invalid service id: %d", app.id)
+	}
 	if x, ok := app.cfg.(interface{ GetLog() config.LogConfig }); ok {
 		logcfg := x.GetLog()
 		level, ok := log.ParseLevel(logcfg.Level)
