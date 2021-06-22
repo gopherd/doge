@@ -15,6 +15,7 @@ import (
 	"github.com/gopherd/doge/build"
 	"github.com/gopherd/doge/config"
 	"github.com/gopherd/doge/erron"
+	"github.com/gopherd/doge/mq"
 	"github.com/gopherd/doge/os/signal"
 	"github.com/gopherd/doge/service/component"
 	"github.com/gopherd/doge/service/discovery"
@@ -140,6 +141,7 @@ type BaseService struct {
 	state             State
 	cfg               config.Configurator
 	discovery         discovery.Discovery
+	mq                mq.Conn
 	force             bool
 	components        *component.Manager
 	lastKeepaliveTime time.Time
@@ -202,6 +204,11 @@ func (app *BaseService) Busy() bool {
 // Discovery returns the discovery engine
 func (app *BaseService) Discovery() discovery.Discovery {
 	return app.discovery
+}
+
+// MQ returns the mq engine
+func (app *BaseService) MQ() mq.Conn {
+	return app.mq
 }
 
 const keepalive = 5 * 1000
@@ -286,47 +293,61 @@ func (app *BaseService) Init() error {
 	if err != nil {
 		return erron.Throw(err)
 	}
-	if x, ok := app.cfg.(interface{ GetID() int64 }); ok {
-		app.id = x.GetID()
+	core := app.cfg.GetCore()
+	if core.ID > 0 {
+		app.id = core.ID
 	}
 	if app.id <= 0 {
 		return erron.New("invalid service id: %d", app.id)
 	}
-	if x, ok := app.cfg.(interface{ GetLog() config.LogConfig }); ok {
-		logcfg := x.GetLog()
-		level, ok := log.ParseLevel(logcfg.Level)
-		if !ok {
-			level = log.LvINFO
-		}
-		prefix := logcfg.Prefix
-		if prefix == "" {
-			prefix = build.Name()
-		}
-		var options []log.Option
-		// TODO: writer from logcfg.Writers
-		options = append(options, log.WithConsle())
-		options = append(options, log.WithLevel(level))
-		options = append(options, log.WithPrefix(prefix))
-		if logcfg.Flags < 0 {
-			options = append(options, log.WithFlags(0))
-		} else if logcfg.Flags > 0 {
-			options = append(options, log.WithFlags(logcfg.Flags))
-		}
-		log.Start(options...)
+
+	// initialize log
+	level, ok := log.ParseLevel(core.Log.Level)
+	if !ok {
+		level = log.LvINFO
 	}
+	prefix := core.Log.Prefix
+	if prefix == "" {
+		prefix = build.Name()
+	}
+	var options []log.Option
+	// TODO: writer from core.Log.Writers
+	options = append(options, log.WithConsle())
+	options = append(options, log.WithLevel(level))
+	options = append(options, log.WithPrefix(prefix))
+	if core.Log.Flags < 0 {
+		options = append(options, log.WithFlags(0))
+	} else if core.Log.Flags > 0 {
+		options = append(options, log.WithFlags(core.Log.Flags))
+	}
+	log.Start(options...)
 	log.Info().
 		Int("pid", pid).
 		Int64("id", app.id).
 		String("uuid", app.uuid).
 		Print("initializing service")
-	name, source := app.cfg.GetDiscovery()
-	if name != "" {
-		d, err := discovery.Open(name, source)
+
+	// open discovery
+	if core.Discovery.Name != "" {
+		d, err := discovery.Open(core.Discovery.Name, core.Discovery.Source)
 		if err != nil {
 			return erron.Throw(err)
 		}
 		app.discovery = d
 	}
+
+	// open mq
+	if core.MQ.Name != "" {
+		if app.discovery == nil {
+			return erron.Throwf("discovery required if mq set")
+		}
+		q, err := mq.Open(core.MQ.Name, core.MQ.Source, app.discovery)
+		if err != nil {
+			return erron.Throw(err)
+		}
+		app.mq = q
+	}
+
 	return app.components.Init()
 }
 

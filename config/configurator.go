@@ -17,8 +17,8 @@ type Configurator interface {
 	Write(Configurator, io.Writer) error
 	// SetSource sets source of config
 	SetSource(string)
-	// GetDiscovery returns configuration of discovery
-	GetDiscovery() (name, source string)
+	// GetCore returns core configuration
+	GetCore() *CoreConfig
 }
 
 type option struct {

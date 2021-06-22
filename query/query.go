@@ -2,6 +2,8 @@ package query
 
 import (
 	"encoding/json"
+	"errors"
+	"net/url"
 	"strconv"
 	"time"
 )
@@ -62,6 +64,47 @@ func (err *parseError) Error() string {
 
 func (err *parseError) Unwrap() error {
 	return err.err
+}
+
+// Maybe rawurl is of the form scheme:path.
+// (Scheme must be [a-zA-Z][a-zA-Z0-9+-.]*)
+// If so, return scheme, path; else return "", rawurl.
+func getscheme(rawurl string) (scheme, path string, err error) {
+	for i := 0; i < len(rawurl); i++ {
+		c := rawurl[i]
+		switch {
+		case 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z':
+		// do nothing
+		case '0' <= c && c <= '9' || c == '+' || c == '-' || c == '.':
+			if i == 0 {
+				return "", rawurl, nil
+			}
+		case c == ':':
+			if i == 0 {
+				return "", "", errors.New("missing protocol scheme")
+			}
+			return rawurl[:i], rawurl[i+1:], nil
+		default:
+			// we have encountered an invalid character,
+			// so there is no valid scheme
+			return "", rawurl, nil
+		}
+	}
+	return "", rawurl, nil
+}
+
+// ParseURL parses rawurl as an url.URL with defaultScheme
+// if scheme(like xxx://) not found in rawurl
+func ParseURL(rawurl string, defaultScheme string) (*url.URL, error) {
+	scheme, rest, err := getscheme(rawurl)
+	if err != nil || len(scheme) == 0 || len(rest) < 2 || rest[0] != '/' || rest[1] != '/' {
+		if defaultScheme != "" {
+			rawurl = defaultScheme + "://" + rawurl
+		} else {
+			return nil, errors.New("url shoud be start with <scheme>://, e.g. http://, tcp://, unix://")
+		}
+	}
+	return url.Parse(rawurl)
 }
 
 // Query alias map[string][]string

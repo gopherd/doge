@@ -59,15 +59,7 @@ type BaseConfig struct {
 	source string `json:"-"`
 
 	// Core represents core common fields
-	Core struct {
-		Project   string          `json:"project"`
-		Mode      Mode            `json:"mode"`
-		ID        int64           `json:"id"`
-		FPS       int             `json:"fps"`
-		Log       LogConfig       `json:"log"`
-		MQ        MQConfig        `json:"mq"`
-		Discovery DiscoveryConfig `json:"discovery"`
-	} `json:"core"`
+	Core CoreConfig `json:"core"`
 }
 
 // Read implements Configurator Read method
@@ -87,23 +79,24 @@ func (c BaseConfig) Write(self Configurator, w io.Writer) error {
 	return enc.Encode(self)
 }
 
+// Core configuration
+type CoreConfig struct {
+	Project   string          `json:"project"`
+	Mode      Mode            `json:"mode"`
+	ID        int64           `json:"id"`
+	Log       LogConfig       `json:"log"`
+	MQ        MQConfig        `json:"mq"`
+	Discovery DiscoveryConfig `json:"discovery"`
+}
+
 // SetSource implements Configurator SetSource method
 func (c *BaseConfig) SetSource(source string) {
 	c.source = source
 }
 
-// GetDiscovery implements Configurator GetDiscovery method
-func (c *BaseConfig) GetDiscovery() (name, source string) {
-	return c.Core.Discovery.Name, c.Core.Discovery.Source
-}
-
-func (c *BaseConfig) GetID() int64 {
-	return c.Core.ID
-}
-
-// GetLog returns the log configuration
-func (c *BaseConfig) GetLog() LogConfig {
-	return c.Core.Log
+// GetCore implements Configurator GetCore method
+func (c *BaseConfig) GetCore() *CoreConfig {
+	return &c.Core
 }
 
 // LogConfig represents configuration of log
