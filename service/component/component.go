@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/mkideal/log"
+	"github.com/gopherd/doge/log"
 )
 
 // Component represents a generic logic component

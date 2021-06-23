@@ -5,7 +5,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/mkideal/log"
+	"github.com/gopherd/doge/log"
 )
 
 // TCPKeepAliveListener wraps TCPListener with a keepalive duration

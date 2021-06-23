@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/mkideal/log"
 
 	"github.com/gopherd/doge/build"
 	"github.com/gopherd/doge/config"
 	"github.com/gopherd/doge/erron"
+	"github.com/gopherd/doge/log"
 	"github.com/gopherd/doge/mq"
 	"github.com/gopherd/doge/os/signal"
 	"github.com/gopherd/doge/service/component"
@@ -312,7 +312,7 @@ func (app *BaseService) Init() error {
 	}
 	var options []log.Option
 	// TODO: writer from core.Log.Writers
-	options = append(options, log.WithConsle())
+	options = append(options, log.WithConsole())
 	options = append(options, log.WithLevel(level))
 	options = append(options, log.WithPrefix(prefix))
 	if core.Log.Flags < 0 {
