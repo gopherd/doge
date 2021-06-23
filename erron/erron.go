@@ -130,7 +130,7 @@ func (errs *Errors) Last() error {
 	return errs.errors[len(errs.errors)-1]
 }
 
-// All merges all errors as an error, nil returned if no error.
+// All merges all errors as an error, nil returned if no errors.
 func (errs *Errors) All() error {
 	if len(errs.errors) == 0 {
 		return nil

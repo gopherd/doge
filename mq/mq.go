@@ -20,9 +20,9 @@ type Consumer interface {
 // Claim used to receive requests from mq.
 type Claim interface {
 	// Err chan used to receive error
-	Err() chan<- error
+	Err() <-chan error
 	// Message chan used to receive message content
-	Message() chan<- []byte
+	Message() <-chan []byte
 }
 
 // Conn is the top-level mq connection
@@ -39,7 +39,7 @@ type Conn interface {
 
 // Driver is the interface that must be implemented by a mq driver
 type Driver interface {
-	// Open returns a new mq instance by a driver-specific source name
+	// Open returns a Conn instance by a driver-specific source name
 	Open(source string, discovery discovery.Discovery) (Conn, error)
 }
 
@@ -71,4 +71,30 @@ func Open(name, source string, discovery discovery.Discovery) (Conn, error) {
 		return nil, fmt.Errorf("mq: unknown driver %q (forgotten import?)", name)
 	}
 	return driver.Open(source, discovery)
+}
+
+// FuncConsumer implements Consumer interface
+type FuncConsumer func([]byte, error)
+
+// Setup implements Consumer Setup method
+func (fc FuncConsumer) Setup() error { return nil }
+
+// Cleanup implements Consumer Cleanup method
+func (fc FuncConsumer) Cleanup() error { return nil }
+
+// Consume implements Consumer Consume method
+func (fc FuncConsumer) Consume(claim Claim) {
+	errChan := claim.Err()
+	msgChan := claim.Message()
+	for {
+		select {
+		case err := <-errChan:
+			if err != nil {
+				fc(nil, err)
+			}
+			return
+		case msg := <-msgChan:
+			fc(msg, nil)
+		}
+	}
 }

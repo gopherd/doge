@@ -120,12 +120,14 @@ type LogConfig struct {
 
 // MQConfig ...
 type MQConfig struct {
+	Enable bool   `json:"enable"`
 	Name   string `json:"name"`
 	Source string `json:"source"`
 }
 
 // DiscoveryConfig ...
 type DiscoveryConfig struct {
+	Enable bool   `json:"enable"`
 	Name   string `json:"name"`
 	Source string `json:"source"`
 }

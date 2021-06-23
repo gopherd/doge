@@ -328,7 +328,7 @@ func (app *BaseService) Init() error {
 		Print("initializing service")
 
 	// open discovery
-	if core.Discovery.Name != "" {
+	if core.Discovery.Enable {
 		d, err := discovery.Open(core.Discovery.Name, core.Discovery.Source)
 		if err != nil {
 			return erron.Throw(err)
@@ -337,9 +337,9 @@ func (app *BaseService) Init() error {
 	}
 
 	// open mq
-	if core.MQ.Name != "" {
+	if core.MQ.Enable {
 		if app.discovery == nil {
-			return erron.Throwf("discovery required if mq set")
+			return erron.Throwf("discovery required if mq enabled")
 		}
 		q, err := mq.Open(core.MQ.Name, core.MQ.Source, app.discovery)
 		if err != nil {
