@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gopherd/doge/log"
+	"github.com/gopherd/log"
 	xnetutil "golang.org/x/net/netutil"
 
 	"github.com/gopherd/doge/net/netutil"

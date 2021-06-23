@@ -105,7 +105,7 @@ type LogConfig struct {
 	Level string `json:"level"`
 	// Prefix to preappend to each log message
 	Prefix string `json:"prefix"`
-	// Flags of log printer, @see githug.com/gopherd/doge/log@Flags.
+	// Flags of log printer, @see githug.com/gopherd/log@Flags.
 	// -1: no flags
 	//  0: default flags
 	Flags int `json:"flags"`

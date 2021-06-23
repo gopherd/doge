@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gopherd/log"
 
 	"github.com/gopherd/doge/build"
 	"github.com/gopherd/doge/config"
 	"github.com/gopherd/doge/erron"
-	"github.com/gopherd/doge/log"
 	"github.com/gopherd/doge/mq"
 	"github.com/gopherd/doge/os/signal"
 	"github.com/gopherd/doge/service/component"
