@@ -5,48 +5,51 @@ type Type int64
 
 // Event represents an event data
 type Event interface {
-	EventType() Type
+	Type() Type
 }
 
 // Handler handles event
 type Handler interface {
-	HandleEvent(Event)
+	Handle(Event) (swallowed bool)
 }
 
 // HandlerFunc wraps a function as Handler
-type HandlerFunc func(Event)
+type HandlerFunc func(Event) (swallowed bool)
 
-// HandleEvent implements Handler HandleEvent method
-func (fn HandlerFunc) HandleEvent(e Event) { fn(e) }
+// Handle implements Handler HandleEvent method
+func (fn HandlerFunc) Handle(e Event) bool { return fn(e) }
 
-// Manager manages event handlers
-type Manager struct {
+// Registry manages event handlers
+type Registry struct {
 	handlers map[Type][]Handler
 }
 
-// NewManager creates an event manager
-func NewManager() *Manager {
-	return &Manager{
+// NewRegistry creates an event registry
+func NewRegistry() *Registry {
+	return &Registry{
 		handlers: make(map[Type][]Handler),
 	}
 }
 
-// Register registers handler by event type
-func (m *Manager) Register(t Type, h Handler) {
-	if handlers, ok := m.handlers[t]; ok {
-		m.handlers[t] = append(handlers, h)
-	} else {
-		m.handlers[t] = []Handler{h}
-	}
+// Handle registers event handler by type
+func (r *Registry) Handle(t Type, h Handler) {
+	r.handlers[t] = append(r.handlers[t], h)
 }
 
-// Post posts event
-func (m *Manager) Post(e Event) {
-	handlers, ok := m.handlers[e.EventType()]
+// HandleFunc registers event handler func by type
+func (r *Registry) HandleFunc(t Type, h HandlerFunc) {
+	r.handlers[t] = append(r.handlers[t], h)
+}
+
+// Post posts event to handlers by type
+func (r *Registry) Post(e Event) {
+	handlers, ok := r.handlers[e.Type()]
 	if !ok {
 		return
 	}
 	for i := range handlers {
-		handlers[i].HandleEvent(e)
+		if handlers[i].Handle(e) {
+			return
+		}
 	}
 }

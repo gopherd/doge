@@ -1,11 +1,57 @@
 package rbtree_test
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 
+	"github.com/gopherd/doge/container"
 	. "github.com/gopherd/doge/container/rbtree"
 )
+
+func ExampleRBTree() {
+	tree := New(func(k1, k2 K) bool { return k1 > k2 })
+	fmt.Print("empty:\n" + tree.Format(container.TreeFormatter{}))
+
+	tree.Insert(1, 2)
+	tree.Insert(2, 4)
+	tree.Insert(4, 8)
+	tree.Insert(8, 16)
+
+	fmt.Print("default:\n" + tree.Format(container.TreeFormatter{}))
+	fmt.Print("custom:\n" + tree.Format(container.TreeFormatter{
+		Prefix:         "... ",
+		IconParent:     "|  ",
+		IconBranch:     "|--",
+		IconLastBranch: "+--",
+	}))
+	fmt.Println("plain:\n" + tree.String())
+	// Output:
+	// empty:
+	// <nil>
+	// default:
+	// 2:4
+	// ├── 4:8
+	// │   └── 8:16
+	// └── 1:2
+	// custom:
+	// ... 2:4
+	// ... |-- 4:8
+	// ... |   +-- 8:16
+	// ... +-- 1:2
+	// plain:
+	// [8:16 4:8 2:4 1:2]
+
+	tree.Remove(1)
+	iter := tree.First()
+	for iter != nil {
+		if iter.Key() > 2 {
+			iter.SetValue(iter.Value() * 2)
+		}
+		iter = iter.Next()
+	}
+	// now: [8:32 4:16 2:4]
+}
 
 func TestRBTree(t *testing.T) {
 	tree := New(func(k1, k2 K) bool { return k1 > k2 })
@@ -58,13 +104,6 @@ func TestRBTree(t *testing.T) {
 		}
 		checkTree("add", t, tree, hashmap)
 	}
-	t.Log("tree.pretty:\n" + tree.Format(FormatOptions{
-		Prefix: "... ",
-		Debug:  true,
-	}))
-	t.Log("tree.plain:\n" + tree.MarshalTree(""))
-	t.Log("tree.string:" + tree.String())
-
 	for j := 0; j < keys; j++ {
 		key := makeKey(j)
 		remove(key)

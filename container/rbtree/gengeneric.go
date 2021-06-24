@@ -4,7 +4,7 @@
 // type of key, type of value, name of struct and comment of struct.
 //
 // Example usage:
-//	go run -tags=gengenericrbtree gengeneric.go -pkg=orderedmap -key=int -value=string -name=OrderedMap -comment="represents an ordered map"
+//	go run gengeneric.go -pkg=orderedmap -key=int -value=string -name=OrderedMap -comment="represents an ordered map"
 //
 // Appends argument "-o path/to/your/filename.go" to write result to file instead of stdout.
 
@@ -17,6 +17,8 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -127,6 +129,12 @@ func main() {
 	if flags.output == "" {
 		fmt.Print(buf.String())
 	} else {
+		dir := filepath.Dir(flags.output)
+		if dir != "" && dir != "." {
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				panic(err)
+			}
+		}
 		if err := ioutil.WriteFile(flags.output, buf.Bytes(), 0666); err != nil {
 			panic(err)
 		}

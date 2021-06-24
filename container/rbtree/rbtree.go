@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+
+	"github.com/gopherd/doge/container"
 )
 
 // K represents type of the key
@@ -140,20 +142,14 @@ func (tree *RBTree) Last() Iterator {
 	return tree.root.biggest()
 }
 
-// FormatOptions contains options for formatting RBTree
-type FormatOptions struct {
-	Prefix string
-	Debug  bool
-}
-
 // Format formats the tree
-func (tree *RBTree) Format(options FormatOptions) string {
-	return tree.root.format(options)
+func (tree *RBTree) Format(formatter container.TreeFormatter) string {
+	return tree.root.format(formatter)
 }
 
 // MarshalTree returns a pretty output as a tree
 func (tree *RBTree) MarshalTree(prefix string) string {
-	return tree.root.format(FormatOptions{
+	return tree.root.format(container.TreeFormatter{
 		Prefix: prefix,
 	})
 }
@@ -596,22 +592,23 @@ func (node *node) biggest() *node {
 	return next
 }
 
-func (node *node) format(options FormatOptions) string {
+func (node *node) format(formatter container.TreeFormatter) string {
+	formatter.Fix()
 	if node == nil {
-		return "<nil>"
+		return "<nil>\n"
 	}
 	var (
 		buf         bytes.Buffer
 		prefixstack bytes.Buffer
 	)
-	if options.Prefix != "" {
-		prefixstack.WriteString(options.Prefix)
+	if formatter.Prefix != "" {
+		prefixstack.WriteString(formatter.Prefix)
 	}
-	node.print(&buf, &prefixstack, "", 0, options)
+	node.print(&buf, &prefixstack, "", 0, formatter)
 	return buf.String()
 }
 
-func (node *node) print(w io.Writer, prefixstack *bytes.Buffer, prefix string, depth int, options FormatOptions) {
+func (node *node) print(w io.Writer, prefixstack *bytes.Buffer, prefix string, depth int, formatter container.TreeFormatter) {
 	var (
 		prefixlen    = prefixstack.Len()
 		cbegin, cend string
@@ -624,7 +621,7 @@ func (node *node) print(w io.Writer, prefixstack *bytes.Buffer, prefix string, d
 		cbegin = "\033[0;31m" // red color code
 		cend = vend
 	}
-	if !options.Debug {
+	if !formatter.Color {
 		vbegin = ""
 		vend = ""
 		cbegin = ""
@@ -632,7 +629,7 @@ func (node *node) print(w io.Writer, prefixstack *bytes.Buffer, prefix string, d
 	}
 
 	if node.null() {
-		if options.Debug {
+		if formatter.Debug {
 			fmt.Fprintf(w, "%s%s%snil:%d%s\n", prefixstack.String(), prefix, cbegin, depth+1, cend)
 		}
 		return
@@ -641,22 +638,22 @@ func (node *node) print(w io.Writer, prefixstack *bytes.Buffer, prefix string, d
 
 	if node.parent != nil {
 		var isLast bool
-		if options.Debug {
+		if formatter.Debug {
 			isLast = node.parent.right == node
 		} else {
 			isLast = node.parent.right == node || node.parent.right.null()
 		}
 		if isLast {
-			prefixstack.WriteString("     ")
+			prefixstack.WriteString(formatter.IconSpace)
 		} else {
-			prefixstack.WriteString("│    ")
+			prefixstack.WriteString(formatter.IconParent)
 		}
 	}
 	var (
 		children [2]int
 		size     = 0
 	)
-	if !options.Debug {
+	if !formatter.Debug {
 		if !node.left.null() {
 			children[size] = left
 			size++
@@ -673,12 +670,12 @@ func (node *node) print(w io.Writer, prefixstack *bytes.Buffer, prefix string, d
 	for i := 0; i < size; i++ {
 		var appended string
 		if i+1 == size {
-			appended = "└── "
+			appended = formatter.IconLastBranch
 		} else {
-			appended = "├── "
+			appended = formatter.IconBranch
 		}
 		child := node.child(children[i])
-		child.print(w, prefixstack, appended, depth+int(child.color), options)
+		child.print(w, prefixstack, appended, depth+int(child.color), formatter)
 	}
 
 	if prefixlen != prefixstack.Len() {
