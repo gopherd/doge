@@ -83,6 +83,7 @@ func (c BaseConfig) Write(self Configurator, w io.Writer) error {
 type CoreConfig struct {
 	Project   string          `json:"project"`
 	Mode      Mode            `json:"mode"`
+	Name      string          `json:"name"`
 	ID        int64           `json:"id"`
 	Log       LogConfig       `json:"log"`
 	MQ        MQConfig        `json:"mq"`
@@ -113,21 +114,21 @@ type LogConfig struct {
 	// Writers specified multi-writers, like:
 	//	[
 	//		"console",
-	//		"file://path/to/filename?suffix=.txt"
+	//		"file:path/to/filename?suffix=.txt"
 	//	]
 	Writers []string `json:"writers"`
 }
 
 // MQConfig ...
 type MQConfig struct {
-	Enable bool   `json:"enable"`
+	Off    bool   `json:"off"`
 	Name   string `json:"name"`
 	Source string `json:"source"`
 }
 
 // DiscoveryConfig ...
 type DiscoveryConfig struct {
-	Enable bool   `json:"enable"`
+	Off    bool   `json:"off"`
 	Name   string `json:"name"`
 	Source string `json:"source"`
 }

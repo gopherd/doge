@@ -74,7 +74,7 @@ func Open(name, source string, discovery discovery.Discovery) (Conn, error) {
 }
 
 // FuncConsumer implements Consumer interface
-type FuncConsumer func([]byte, error)
+type FuncConsumer func(topic string, msg []byte, err error)
 
 // Setup implements Consumer Setup method
 func (fc FuncConsumer) Setup() error { return nil }
@@ -83,18 +83,18 @@ func (fc FuncConsumer) Setup() error { return nil }
 func (fc FuncConsumer) Cleanup() error { return nil }
 
 // Consume implements Consumer Consume method
-func (fc FuncConsumer) Consume(claim Claim) {
+func (fc FuncConsumer) Consume(topic string, claim Claim) {
 	errChan := claim.Err()
 	msgChan := claim.Message()
 	for {
 		select {
 		case err := <-errChan:
 			if err != nil {
-				fc(nil, err)
+				fc(topic, nil, err)
 			}
 			return
 		case msg := <-msgChan:
-			fc(msg, nil)
+			fc(topic, msg, nil)
 		}
 	}
 }

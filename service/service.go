@@ -74,6 +74,21 @@ type Service interface {
 	Shutdown() error
 }
 
+var (
+	startedAt time.Time
+	pid       int
+)
+
+func init() {
+	startedAt = time.Now()
+	pid = os.Getpid()
+}
+
+// Since returns duration since started time
+func Since() time.Duration {
+	return time.Since(startedAt)
+}
+
 // Run runs the service
 func Run(app Service) {
 	if err := exec(app); err != nil {
@@ -87,8 +102,6 @@ func Run(app Service) {
 		os.Exit(code)
 	}
 }
-
-var pid = os.Getpid()
 
 func exec(app Service) error {
 	defer log.Shutdown()
@@ -112,13 +125,13 @@ func exec(app Service) error {
 	signal.Register(os.Interrupt, func(os.Signal) bool {
 		return true
 	})
-	log.Info().Print("service started, waiting signal INT")
+	log.Info().Print("service started, Ctrl-C or run command `kill -s INT <pid> to shutdown the service`")
 	signal.Listen()
 	log.Info().Print("service received signal INT")
 	app.SetState(Stopping)
 
 	if app.Busy() {
-		log.Info().Print("service now busy, waiting...")
+		log.Info().Print("service busy now, maybe waiting for a while")
 		ticker := time.NewTicker(time.Millisecond * 100)
 		defer ticker.Stop()
 		for range ticker.C {
@@ -128,15 +141,14 @@ func exec(app Service) error {
 		}
 	}
 
-	app.SetState(Closed)
 	log.Info().Print("shutting down service")
+	app.SetState(Closed)
+
 	return app.Shutdown()
 }
 
 // BaseService implements Service
 type BaseService struct {
-	name              string
-	id                int64
 	uuid              string
 	state             State
 	cfg               config.Configurator
@@ -160,24 +172,14 @@ func (app *BaseService) AddComponent(com component.Component) component.Componen
 	return app.components.Add(com)
 }
 
-// SetName sets name of service
-func (app *BaseService) SetName(name string) {
-	app.name = name
-}
-
 // Name implements Service Name method
 func (app *BaseService) Name() string {
-	return app.name
-}
-
-// SetID sets id of service
-func (app *BaseService) SetID(id int64) {
-	app.id = id
+	return app.cfg.GetCore().Name
 }
 
 // ID implements Service ID method
 func (app *BaseService) ID() int64 {
-	return app.id
+	return app.cfg.GetCore().ID
 }
 
 // UUID implements service UUID method
@@ -231,11 +233,11 @@ func (app *BaseService) register(nx bool) error {
 	if err != nil {
 		return err
 	}
-	id := strconv.FormatInt(app.id, 10)
-	err = app.discovery.Register(context.Background(), app.name, id, string(data), nx)
+	id := strconv.FormatInt(app.ID(), 10)
+	err = app.discovery.Register(context.Background(), app.Name(), id, string(data), nx)
 	if err != nil {
 		if discovery.IsExist(err) {
-			loaded, err := app.discovery.Find(context.Background(), app.name, id)
+			loaded, err := app.discovery.Find(context.Background(), app.Name(), id)
 			if err != nil {
 				return err
 			}
@@ -249,28 +251,28 @@ func (app *BaseService) register(nx bool) error {
 				if expired {
 					if !app.force {
 						log.Error().
-							String("name", app.name).
-							Int64("id", app.id).
+							String("name", app.Name()).
+							Int64("id", app.ID()).
 							String("uuid", app.uuid).
 							Print("service found and not closed but expired, you can startup with command line flag -F")
 						return erron.New("service not closed")
 					}
 					log.Warn().
-						String("name", app.name).
-						Int64("id", app.id).
+						String("name", app.Name()).
+						Int64("id", app.ID()).
 						Print("force startup service")
 				} else {
 					log.Warn().
-						String("name", app.name).
-						Int64("id", app.id).
+						String("name", app.Name()).
+						Int64("id", app.ID()).
 						Print("service not closed, stop it first!")
 					return erron.New("service not closed")
 				}
 			}
-			if err := app.discovery.Unregister(context.Background(), app.name, id); err != nil {
+			if err := app.discovery.Unregister(context.Background(), app.Name(), id); err != nil {
 				return err
 			}
-			return app.discovery.Register(context.Background(), app.name, id, string(data), nx)
+			return app.discovery.Register(context.Background(), app.Name(), id, string(data), nx)
 		} else {
 			return err
 		}
@@ -282,7 +284,7 @@ func (app *BaseService) unregister() error {
 	if app.discovery == nil {
 		return nil
 	}
-	return app.discovery.Unregister(context.Background(), app.name, strconv.FormatInt(app.id, 10))
+	return app.discovery.Unregister(context.Background(), app.Name(), strconv.FormatInt(app.ID(), 10))
 }
 
 // Init implements Service Init method
@@ -293,13 +295,14 @@ func (app *BaseService) Init() error {
 	if err != nil {
 		return erron.Throw(err)
 	}
+	if app.ID() <= 0 {
+		return erron.Throwf("invalid service id: %d", app.ID())
+	}
+	if app.Name() == "" {
+		return erron.Throwf("invalid service name: %q", app.Name())
+	}
+
 	core := app.cfg.GetCore()
-	if core.ID > 0 {
-		app.id = core.ID
-	}
-	if app.id <= 0 {
-		return erron.New("invalid service id: %d", app.id)
-	}
 
 	// initialize log
 	level, ok := log.ParseLevel(core.Log.Level)
@@ -310,9 +313,22 @@ func (app *BaseService) Init() error {
 	if prefix == "" {
 		prefix = build.Name()
 	}
-	var options []log.Option
-	// TODO: writer from core.Log.Writers
-	options = append(options, log.WithConsole())
+	var (
+		options []log.Option
+		writers []log.Writer
+	)
+	for _, source := range core.Log.Writers {
+		w, err := log.Open(source)
+		if err != nil {
+			return erron.Throwf("open writer %q error: %s", source, err.Error())
+		}
+		writers = append(writers, w)
+	}
+	if len(writers) == 0 {
+		options = append(options, log.WithOutput(os.Stderr))
+	} else {
+		options = append(options, log.WithWriters(writers...))
+	}
 	options = append(options, log.WithLevel(level))
 	options = append(options, log.WithPrefix(prefix))
 	if core.Log.Flags < 0 {
@@ -323,12 +339,13 @@ func (app *BaseService) Init() error {
 	log.Start(options...)
 	log.Info().
 		Int("pid", pid).
-		Int64("id", app.id).
+		String("name", app.Name()).
+		Int64("id", app.ID()).
 		String("uuid", app.uuid).
 		Print("initializing service")
 
 	// open discovery
-	if core.Discovery.Enable {
+	if !core.Discovery.Off {
 		d, err := discovery.Open(core.Discovery.Name, core.Discovery.Source)
 		if err != nil {
 			return erron.Throw(err)
@@ -337,7 +354,7 @@ func (app *BaseService) Init() error {
 	}
 
 	// open mq
-	if core.MQ.Enable {
+	if !core.MQ.Off {
 		if app.discovery == nil {
 			return erron.Throwf("discovery required if mq enabled")
 		}
