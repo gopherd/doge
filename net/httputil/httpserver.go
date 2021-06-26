@@ -122,7 +122,7 @@ func (httpd *HTTPServer) Handle(pattern string, handler http.Handler, middleware
 	httpd.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt64(&httpd.numHandling, 1)
 		defer atomic.AddInt64(&httpd.numHandling, -1)
-		log.Printf(log.LvDEBUG, "%s - %s %s %q %q", IP(r), r.Proto, r.Method, r.URL.Path, r.UserAgent())
+		log.Printf(log.LevelDebug, "%s - %s %s %q %q", IP(r), r.Proto, r.Method, r.URL.Path, r.UserAgent())
 		w.Header().Add("Connection", "Keep-alive")
 		w.Header().Add("Access-Control-Allow-Origin", "*")
 		w.Header().Add("Keep-alive", "30")
@@ -133,9 +133,9 @@ func (httpd *HTTPServer) Handle(pattern string, handler http.Handler, middleware
 func (httpd *HTTPServer) JSONResponse(w http.ResponseWriter, r *http.Request, data interface{}, options ...ResponseOptions) {
 	if data != nil {
 		if e, ok := data.(error); ok {
-			log.Log(2, log.LvINFO, "http", "%s - %s %s %q response an application error: %e", IP(r), r.Proto, r.Method, r.URL.Path, e.Error())
+			log.Log(2, log.LevelInfo, "http", "%s - %s %s %q response an application error: %e", IP(r), r.Proto, r.Method, r.URL.Path, e.Error())
 		} else {
-			log.Log(2, log.LvTRACE, "http", "%s - %s %s %q response json", IP(r), r.Proto, r.Method, r.URL.Path)
+			log.Log(2, log.LevelTrace, "http", "%s - %s %s %q response json", IP(r), r.Proto, r.Method, r.URL.Path)
 		}
 	}
 	JSONResponse(w, data, options...)

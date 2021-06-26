@@ -362,7 +362,7 @@ func (app *BaseService) Init() error {
 	// initialize log
 	level, ok := log.ParseLevel(core.Log.Level)
 	if !ok {
-		level = log.LvINFO
+		level = log.LevelInfo
 	}
 	prefix := core.Log.Prefix
 	if prefix == "" {
