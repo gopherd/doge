@@ -14,12 +14,23 @@ const (
 	MaxSize = 1 << 30
 	// max message type
 	MaxType = 1 << 31
+
+	TextprotoType = 0x2B // char='+'
 )
+
+var (
+	textprotoPrefix = []byte{TextprotoType}
+	textprotoSuffix = []byte{'\r', '\n'}
+)
+
+func TextprotoPrefix() []byte { return textprotoPrefix }
+func TextprotoSuffix() []byte { return textprotoSuffix }
 
 var (
 	ErrVarintOverflow   = errors.New("proto: varint overflow")
 	ErrSizeOverflow     = errors.New("proto: size overflow")
 	ErrTypeOverflow     = errors.New("proto: type overflow")
+	ErrOutOfRange       = errors.New("proto: out of range")
 	ErrUnrecognizedType = errors.New("proto: unrecognized type")
 )
 
@@ -70,6 +81,9 @@ var (
 //		proto.Register("foo", BarType, func() proto.Message { return new(Bar) })
 //	}
 func Register(module string, typ Type, creator func() Message) {
+	if typ == TextprotoType {
+		panic(fmt.Sprintf("proto: Register type %d is reserved", typ))
+	}
 	if typ > MaxType {
 		panic(fmt.Sprintf("proto: Register type %d out of range [0, %d]", typ, MaxType))
 	}
@@ -200,28 +214,25 @@ func sizeofUvarint(x uint64) int {
 	return i + 1
 }
 
-func sizeof(m Message) (size, ssize, tsize int) {
-	msize := Sizeof(m)
-	tsize = sizeofUvarint(uint64(m.Type()))
-	size = msize + tsize
-	ssize = sizeofUvarint(uint64(size))
+func sizeof(m Message) (msize, ssize int) {
 	return
 }
 
 // Encode returns the wire-format encoding of m with size and type.
 //
-//           |<-- body -->|
-//	|body.len|type|content|
+//	|type|body.size|body|
 func Encode(m Message, reservedHeadLen int) ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	size, ssize, _ := sizeof(m)
+	size := Sizeof(m)
 	if size > MaxSize {
 		return nil, ErrSizeOverflow
 	}
 	off := reservedHeadLen
-	buf := make([]byte, off+ssize+size)
+	tsize := sizeofUvarint(uint64(m.Type()))
+	ssize := sizeofUvarint(uint64(size))
+	buf := make([]byte, off+tsize+ssize+size)
 	_, err := encodeAppend(buf[off:], m, size)
 	return buf, err
 }
@@ -230,26 +241,28 @@ func EncodeAppend(buf []byte, m Message) ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	size, ssize, tsize := sizeof(m)
+	size := Sizeof(m)
 	if size > MaxSize {
 		return nil, ErrSizeOverflow
 	}
 	off := len(buf)
-	n := ssize + size
+	tsize := sizeofUvarint(uint64(m.Type()))
+	ssize := sizeofUvarint(uint64(size))
+	n := tsize + ssize + size
 	if cap(buf)-off < n {
-		newbuf := make([]byte, off+ssize+tsize, off+n)
+		newbuf := make([]byte, off+tsize+ssize, off+n)
 		copy(newbuf, buf)
 		buf = newbuf
 	} else {
-		buf = buf[:off+ssize+tsize]
+		buf = buf[:off+tsize+ssize]
 	}
 	return encodeAppend(buf[off:], m, size)
 }
 
 func encodeAppend(buf []byte, m Message, size int) ([]byte, error) {
 	off := 0
-	off += binary.PutUvarint(buf[off:], uint64(size))
 	off += binary.PutUvarint(buf[off:], uint64(m.Type()))
+	off += binary.PutUvarint(buf[off:], uint64(size))
 	options := proto.MarshalOptions{
 		UseCachedSize: true,
 	}
@@ -265,36 +278,41 @@ func Marshal(m Message) ([]byte, error) {
 // Decode decodes one message with size and type from buf and
 // returns number of bytes read and unmarshaled message.
 func Decode(buf []byte) (int, Message, error) {
-	size, n := binary.Uvarint(buf)
+	off := 0
+	// decode type
+	typ, n := binary.Uvarint(buf[off:])
+	if n == 0 {
+		return off, nil, io.ErrShortBuffer
+	} else if n < 0 {
+		return off, nil, ErrTypeOverflow
+	}
+	off += n
+	if typ > MaxType {
+		return off, nil, ErrTypeOverflow
+	}
+	m := New(Type(typ))
+	if m == nil {
+		return off, nil, ErrUnrecognizedType
+	}
+	// decode size
+	size, n := binary.Uvarint(buf[off:])
 	if n == 0 {
 		return 0, nil, io.ErrShortBuffer
 	} else if n < 0 {
 		return -n, nil, ErrSizeOverflow
-	} else if size > MaxSize {
+	}
+	off += n
+	if size > MaxSize {
 		return n, nil, ErrSizeOverflow
 	}
-	m, err := DecodeBody(buf[n:])
-	return n + int(size), m, err
-}
-
-// Decode decodes one message that contains type from buf and returns
-// unmarshaled message.
-func DecodeBody(b []byte) (Message, error) {
-	typ, n := binary.Uvarint(b)
-	if n == 0 {
-		return nil, io.ErrShortBuffer
-	} else if n < 0 || typ > MaxType {
-		return nil, ErrTypeOverflow
+	end := off + int(size)
+	if end > len(buf) {
+		return n, nil, ErrOutOfRange
 	}
-	m := New(Type(typ))
-	if m == nil {
-		return nil, ErrUnrecognizedType
-	}
-	err := Unmarshal(b[n:], m)
-	if err != nil {
-		return nil, err
-	}
-	return m, nil
+	// decode body
+	err := Unmarshal(buf[off:end], m)
+	off += int(size)
+	return off, m, err
 }
 
 // Unmarshal parses the wire-format message in b and places the result in m.

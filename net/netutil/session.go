@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"net/textproto"
 	"os"
 	"reflect"
 	"runtime"
@@ -195,13 +196,21 @@ func WithTimeout(timeout time.Duration) Option {
 
 // SessionEventHandler handles session events
 type SessionEventHandler interface {
-	OnReady()                        // ready to read/write
-	OnClose(err error)               // session closed, err maybe nil
-	OnMessage(body proto.Body) error // received a message
+	OnReady()                                        // ready to read/write
+	OnClose(err error)                               // session closed, err maybe nil
+	OnMessage(typ proto.Type, body proto.Body) error // received a message
+}
+
+type TextMessageHandler interface {
+	OnTextMessage(*textproto.Reader) error
 }
 
 // Session wraps network session
 type Session struct {
+	textproto struct {
+		reader  *textproto.Reader
+		handler TextMessageHandler
+	}
 	reader  *reader
 	writer  *bufio.Writer
 	handler SessionEventHandler
@@ -231,6 +240,9 @@ func NewSession(conn net.Conn, handler SessionEventHandler, options ...Option) *
 	}
 	s.cond = sync.NewCond(&s.mutex)
 	s.bufw = make([]byte, s.pipe.PageSize())
+	if texthandler, ok := handler.(TextMessageHandler); ok {
+		s.textproto.handler = texthandler
+	}
 	return s
 }
 
@@ -362,6 +374,7 @@ func (s *Session) writeLoop(readyWg, closeWg *sync.WaitGroup) {
 }
 
 func (s *Session) flush() {
+	written := 0
 	for {
 		s.cond.L.Lock()
 		n, _ := s.pipe.Read(s.bufw)
@@ -369,7 +382,11 @@ func (s *Session) flush() {
 		if n == 0 {
 			break
 		}
+		written += n
 		s.underlyingWrite(s.bufw[:n])
+	}
+	if written > 0 {
+		s.writer.Flush()
 	}
 }
 
@@ -382,15 +399,26 @@ func (s *Session) underlyingWrite(p []byte) error {
 }
 
 func (s *Session) underlyingRead() error {
-	// read size of message body
+	// read type of message body
 	s.reader.size = -1
+	typ, err := proto.ReadType(s.reader)
+	if err != nil {
+		return err
+	}
+	// It's a textproto message
+	if typ == proto.TextprotoType && s.textproto.handler != nil {
+		if s.textproto.reader == nil {
+			s.textproto.reader = textproto.NewReader(s.reader.bufr)
+		}
+		return s.textproto.handler.OnTextMessage(s.textproto.reader)
+	}
+	// handle the message body
 	size, err := proto.ReadSize(s.reader)
 	if err != nil {
 		return err
 	}
-	// handle the message body
 	s.reader.size = size
-	if err := s.handler.OnMessage(s.reader); err != nil {
+	if err := s.handler.OnMessage(typ, s.reader); err != nil {
 		return err
 	}
 	// discard unread bytes
