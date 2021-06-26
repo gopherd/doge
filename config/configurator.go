@@ -15,10 +15,16 @@ type Configurator interface {
 	Read(Configurator, io.Reader) error
 	// Write writes config to writer w
 	Write(Configurator, io.Writer) error
+	// GetSource returns source of config
+	GetSource() string
 	// SetSource sets source of config
 	SetSource(string)
 	// GetCore returns core configuration
 	GetCore() *CoreConfig
+	// Default returns default configuration
+	Default() Configurator
+	// OnReload fired after configuration reloaded
+	OnReload()
 }
 
 type option struct {
@@ -115,6 +121,18 @@ func IsExitError(err error) (code int, ok bool) {
 	return 0, false
 }
 
+func Read(cfg Configurator, optional bool) error {
+	f, err := os.Open(cfg.GetSource())
+	if err != nil {
+		if !optional || !os.IsNotExist(err) {
+			return err
+		}
+		return nil
+	}
+	defer f.Close()
+	return cfg.Read(cfg, f)
+}
+
 // Init initializes Configure cfg from command line flags with options
 func Init(flagSet *flag.FlagSet, cfg Configurator, options ...Option) error {
 	var opt = newOption()
@@ -140,17 +158,9 @@ func Init(flagSet *flag.FlagSet, cfg Configurator, options ...Option) error {
 		input = opt.defaultSource
 	}
 
-	if inputFile, err := os.Open(input); err != nil {
-		if !optional || !os.IsNotExist(err) {
-			return err
-		}
-	} else {
-		cfg.SetSource(input)
-		err := cfg.Read(cfg, inputFile)
-		inputFile.Close()
-		if err != nil {
-			return err
-		}
+	cfg.SetSource(input)
+	if err := Read(cfg, optional); err != nil {
+		return err
 	}
 
 	if output != "" {

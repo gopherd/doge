@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gopherd/doge/encoding/jsonx"
+	"github.com/gopherd/log"
 )
 
 // Process running mode
@@ -90,6 +91,11 @@ type CoreConfig struct {
 	Discovery DiscoveryConfig `json:"discovery"`
 }
 
+// GetSource implements Configurator GetSource method
+func (c *BaseConfig) GetSource() string {
+	return c.source
+}
+
 // SetSource implements Configurator SetSource method
 func (c *BaseConfig) SetSource(source string) {
 	c.source = source
@@ -100,13 +106,22 @@ func (c *BaseConfig) GetCore() *CoreConfig {
 	return &c.Core
 }
 
+func (c *BaseConfig) OnReload() {
+	level, ok := log.ParseLevel(c.Core.Log.Level)
+	if ok {
+		log.SetLevel(level)
+	}
+	log.SetFlags(c.Core.Log.FixedFlags())
+}
+
 // LogConfig represents configuration of log
 type LogConfig struct {
-	// Level of log
-	Level string `json:"level"`
 	// Prefix to preappend to each log message
 	Prefix string `json:"prefix"`
-	// Flags of log printer, @see githug.com/gopherd/log@Flags.
+	// Level of log, reload supported
+	Level string `json:"level"`
+	// Flags of log printer, reload supported
+	// @see githug.com/gopherd/log@Flags.
 	// -1: no flags
 	//  0: default flags
 	Flags int `json:"flags"`
@@ -117,6 +132,15 @@ type LogConfig struct {
 	//		"file:path/to/filename?suffix=.txt"
 	//	]
 	Writers []string `json:"writers"`
+}
+
+func (cfg LogConfig) FixedFlags() int {
+	if cfg.Flags == 0 {
+		return log.LdefaultFlags
+	} else if cfg.Flags < 0 {
+		return 0
+	}
+	return cfg.Flags
 }
 
 // MQConfig ...

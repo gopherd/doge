@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"flag"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/google/uuid"
 	"github.com/gopherd/log"
@@ -19,6 +22,7 @@ import (
 	"github.com/gopherd/doge/os/signal"
 	"github.com/gopherd/doge/service/component"
 	"github.com/gopherd/doge/service/discovery"
+	"github.com/gopherd/doge/time/timer"
 )
 
 // State represents service state
@@ -72,6 +76,11 @@ type Service interface {
 	Start() error
 	// Shutdown shutdowns the service
 	Shutdown() error
+}
+
+// ConfigRewriter rewrites Config
+type ConfigRewriter interface {
+	RewriteConfig(unsafe.Pointer)
 }
 
 var (
@@ -149,23 +158,40 @@ func exec(app Service) error {
 
 // BaseService implements Service
 type BaseService struct {
-	uuid              string
-	state             State
-	cfg               config.Configurator
-	discovery         discovery.Discovery
-	mq                mq.Conn
-	force             bool
-	components        *component.Manager
-	lastKeepaliveTime time.Time
+	self  Service
+	name  string
+	id    int64
+	uuid  string
+	state State
+	force bool
+
+	config struct {
+		ptr       atomic.Value
+		canReload bool
+	}
+
+	discovery  discovery.Discovery
+	mq         mq.Conn
+	components *component.Manager
+
+	tickers struct {
+		keepalive *timer.Ticker
+		reloadCfg *timer.Ticker
+	}
 }
 
 // NewBaseService creates a BaseService
-func NewBaseService(cfg config.Configurator) *BaseService {
-	return &BaseService{
+func NewBaseService(self Service, cfg config.Configurator) *BaseService {
+	s := &BaseService{
+		self:       self,
 		uuid:       strings.ReplaceAll(uuid.NewString(), "-", ""),
-		cfg:        cfg,
 		components: component.NewManager(),
 	}
+	s.config.ptr.Store(cfg)
+	_, s.config.canReload = self.(ConfigRewriter)
+	s.tickers.keepalive = timer.NewTicker(time.Second * 3)
+	s.tickers.reloadCfg = timer.NewTicker(time.Second * 2)
+	return s
 }
 
 func (app *BaseService) AddComponent(com component.Component) component.Component {
@@ -174,12 +200,12 @@ func (app *BaseService) AddComponent(com component.Component) component.Componen
 
 // Name implements Service Name method
 func (app *BaseService) Name() string {
-	return app.cfg.GetCore().Name
+	return app.name
 }
 
 // ID implements Service ID method
 func (app *BaseService) ID() int64 {
-	return app.cfg.GetCore().ID
+	return app.id
 }
 
 // UUID implements service UUID method
@@ -213,8 +239,6 @@ func (app *BaseService) MQ() mq.Conn {
 	return app.mq
 }
 
-const keepalive = 5 * 1000
-
 func (app *BaseService) register(nx bool) error {
 	if app.discovery == nil {
 		return nil
@@ -224,10 +248,11 @@ func (app *BaseService) register(nx bool) error {
 	content.State.Updated = now
 	content.State.PID = pid
 	content.State.State = app.state
-	if d, ok := app.cfg.(config.Discoverable); ok {
+	cfg := app.config.ptr.Load().(config.Configurator)
+	if d, ok := cfg.(config.Discoverable); ok {
 		content.Config = d.DiscoveredContent()
 	} else {
-		content.Config = app.cfg
+		content.Config = cfg
 	}
 	data, err := json.Marshal(content)
 	if err != nil {
@@ -246,7 +271,7 @@ func (app *BaseService) register(nx bool) error {
 				return err
 			}
 			closed := old.State.State == Closed
-			expired := old.State.Updated+2*keepalive < now
+			expired := old.State.Updated+2*int64(app.tickers.keepalive.Interval()/time.Millisecond) < now
 			if !closed {
 				if expired {
 					if !app.force {
@@ -287,22 +312,52 @@ func (app *BaseService) unregister() error {
 	return app.discovery.Unregister(context.Background(), app.Name(), strconv.FormatInt(app.ID(), 10))
 }
 
+func (app *BaseService) reloadCfg() {
+	if !app.config.canReload {
+		return
+	}
+	defer func() {
+		if e := recover(); e != nil {
+			log.Error().Any("error", e).Print("reload config panicked")
+		}
+	}()
+
+	cfg := app.config.ptr.Load().(config.Configurator)
+	rewriter, ok := app.self.(ConfigRewriter)
+	if !ok {
+		app.config.canReload = false
+		return
+	}
+	newCfg := cfg.Default()
+	newCfg.SetSource(cfg.GetSource())
+	if err := config.Read(newCfg, true); err != nil {
+		log.Warn().Error("error", err).Print("reload config error")
+		return
+	}
+	newCfg.OnReload()
+	rewriter.RewriteConfig(unsafe.Pointer(reflect.ValueOf(newCfg).Pointer()))
+	app.config.ptr.Store(newCfg)
+	log.Debug().Print("reload config successfully")
+}
+
 // Init implements Service Init method
 func (app *BaseService) Init() error {
+	cfg := app.config.ptr.Load().(config.Configurator)
 	defaultSource := build.Name() + ".conf"
 	flag.CommandLine.BoolVar(&app.force, "F", false, "Whether force startup service while it not closed but expired")
-	err := config.Init(flag.CommandLine, app.cfg, config.WithDefaultSource(defaultSource))
+	err := config.Init(flag.CommandLine, cfg, config.WithDefaultSource(defaultSource))
 	if err != nil {
 		return erron.Throw(err)
 	}
+	core := cfg.GetCore()
+	app.id = core.ID
+	app.name = core.Name
 	if app.ID() <= 0 {
 		return erron.Throwf("invalid service id: %d", app.ID())
 	}
 	if app.Name() == "" {
 		return erron.Throwf("invalid service name: %q", app.Name())
 	}
-
-	core := app.cfg.GetCore()
 
 	// initialize log
 	level, ok := log.ParseLevel(core.Log.Level)
@@ -331,11 +386,7 @@ func (app *BaseService) Init() error {
 	}
 	options = append(options, log.WithLevel(level))
 	options = append(options, log.WithPrefix(prefix))
-	if core.Log.Flags < 0 {
-		options = append(options, log.WithFlags(0))
-	} else if core.Log.Flags > 0 {
-		options = append(options, log.WithFlags(core.Log.Flags))
-	}
+	options = append(options, log.WithFlags(core.Log.FixedFlags()))
 	log.Start(options...)
 	log.Info().
 		Int("pid", pid).
@@ -382,8 +433,10 @@ func (app *BaseService) Shutdown() {
 // Update updates per frame
 func (app *BaseService) Update(now time.Time, dt time.Duration) {
 	app.components.Update(now, dt)
-	if now.Sub(app.lastKeepaliveTime) > time.Duration(keepalive)*time.Millisecond {
-		app.lastKeepaliveTime = now
+	if app.tickers.keepalive.Next(now) {
 		app.register(false)
+	}
+	if app.tickers.reloadCfg.Next(now) {
+		app.reloadCfg()
 	}
 }
