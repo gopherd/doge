@@ -337,7 +337,7 @@ func (app *BaseService) reloadCfg() {
 	newCfg.OnReload()
 	rewriter.RewriteConfig(unsafe.Pointer(reflect.ValueOf(newCfg).Pointer()))
 	app.config.ptr.Store(newCfg)
-	log.Debug().Print("reload config successfully")
+	log.Trace().Print("reload config successfully")
 }
 
 // Init implements Service Init method

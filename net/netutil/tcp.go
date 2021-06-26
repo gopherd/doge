@@ -55,28 +55,24 @@ type TCPServer struct {
 	listener net.Listener
 }
 
-// NewTCPServer creates a tcp server
-func NewTCPServer(addr string, handler ConnHandler) *TCPServer {
-	server := new(TCPServer)
-	server.addr = addr
-	server.handler = handler
-	return server
-}
-
-// ListenAndServe starts the tcp server
-func (server *TCPServer) ListenAndServe(async bool, keepalive time.Duration, certs ...tls.Certificate) error {
+// ListenTCP creates a tcp server
+func ListenTCP(addr string, handler ConnHandler, keepalive time.Duration, certs ...tls.Certificate) (*TCPServer, net.Listener, error) {
 	var (
 		listener net.Listener
 		err      error
 	)
 	if len(certs) > 0 {
 		config := &tls.Config{Certificates: certs}
-		listener, err = tls.Listen("tcp", server.addr, config)
+		listener, err = tls.Listen("tcp", addr, config)
 	} else {
-		listener, err = listenTCP(server.addr)
+		var a *net.TCPAddr
+		a, err = net.ResolveTCPAddr("tcp", addr)
+		if err == nil {
+			listener, err = net.ListenTCP("tcp", a)
+		}
 	}
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	if keepalive > 0 {
 		if l, ok := listener.(*net.TCPListener); ok {
@@ -85,8 +81,44 @@ func (server *TCPServer) ListenAndServe(async bool, keepalive time.Duration, cer
 			log.Warn().Print("TCPServer.ListenAndServe: keepalive is not supported")
 		}
 	}
+	server := new(TCPServer)
+	server.addr = addr
+	server.handler = handler
+	return server, listener, nil
+}
+
+func (server *TCPServer) Serve(listener net.Listener) error {
 	server.listener = listener
-	return serve(server.listener, server.handler, async)
+	var tempDelay time.Duration // how long to sleep on accept failure
+	for {
+		conn, err := server.listener.Accept()
+		if err != nil {
+			if ne, ok := err.(net.Error); ok && ne.Temporary() {
+				if tempDelay == 0 {
+					tempDelay = 5 * time.Millisecond
+				} else {
+					tempDelay *= 2
+				}
+				if max := 1 * time.Second; tempDelay > max {
+					tempDelay = max
+				}
+				log.Info().
+					Error("error", err).
+					String("delay", tempDelay.String()).
+					Print("accept connection error, retrying")
+				time.Sleep(tempDelay)
+				continue
+			}
+			return err
+		}
+		tempDelay = 0
+		var ip string
+		if addr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+			ip = addr.IP.String()
+		}
+		go server.handler(ip, conn)
+	}
+	return nil
 }
 
 // Shutdown shutdowns the tcp server
@@ -94,57 +126,11 @@ func (server *TCPServer) Shutdown() error {
 	return server.listener.Close()
 }
 
-func listenTCP(addr string) (*net.TCPListener, error) {
-	a, err := net.ResolveTCPAddr("tcp", addr)
+// ListenAndServeTCP listen and serve a tcp address
+func ListenAndServeTCP(addr string, keepalive time.Duration, handler ConnHandler, certs ...tls.Certificate) error {
+	server, listener, err := ListenTCP(addr, handler, keepalive, certs...)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return net.ListenTCP("tcp", a)
-}
-
-func serve(listener net.Listener, handler ConnHandler, async bool) error {
-	serveFunc := func() error {
-		var tempDelay time.Duration // how long to sleep on accept failure
-		for {
-			conn, err := listener.Accept()
-			if err != nil {
-				if ne, ok := err.(net.Error); ok && ne.Temporary() {
-					if tempDelay == 0 {
-						tempDelay = 5 * time.Millisecond
-					} else {
-						tempDelay *= 2
-					}
-					if max := 1 * time.Second; tempDelay > max {
-						tempDelay = max
-					}
-					log.Info().
-						Error("error", err).
-						String("delay", tempDelay.String()).
-						Print("accept connection error, retrying")
-					time.Sleep(tempDelay)
-					continue
-				}
-				return err
-			}
-			tempDelay = 0
-			var ip string
-			if addr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-				ip = addr.IP.String()
-			}
-			go handler(ip, conn)
-		}
-		return nil
-	}
-	if async {
-		go serveFunc()
-	} else {
-		return serveFunc()
-	}
-	return nil
-}
-
-// ListenAndServeTCP wraps TCPServer's ListenAndServeTCP
-func ListenAndServeTCP(addr string, keepalive time.Duration, handler ConnHandler, async bool, certs ...tls.Certificate) error {
-	server := NewTCPServer(addr, handler)
-	return server.ListenAndServe(async, keepalive, certs...)
+	return server.Serve(listener)
 }

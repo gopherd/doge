@@ -197,9 +197,10 @@ type Session struct {
 	writer  *bufio.Writer
 	handler SessionEventHandler
 
-	started int32
-	closed  int32
-	err     error
+	started  int32
+	closed   int32
+	wrunning int32
+	err      error
 
 	mutex sync.Mutex
 	cond  *sync.Cond
@@ -270,12 +271,16 @@ func (s *Session) Serve() bool {
 		readyWg sync.WaitGroup
 		closeWg sync.WaitGroup
 	)
-	readyWg.Add(2)
 	closeWg.Add(2)
-	go s.readLoop(&readyWg, &closeWg)
-	go s.writeLoop(&readyWg, &closeWg)
 
+	readyWg.Add(1)
+	go s.writeLoop(&readyWg, &closeWg)
 	readyWg.Wait()
+
+	readyWg.Add(1)
+	go s.readLoop(&readyWg, &closeWg)
+	readyWg.Wait()
+
 	s.handler.OnReady()
 
 	closeWg.Wait()
@@ -316,22 +321,34 @@ func (s *Session) readLoop(readyWg, closeWg *sync.WaitGroup) {
 			break
 		}
 	}
+	t := time.NewTicker(time.Millisecond)
+	defer t.Stop()
+	for range t.C {
+		if atomic.LoadInt32(&s.wrunning) == 1 {
+			s.cond.Signal()
+		} else {
+			break
+		}
+	}
 	closeWg.Done()
 }
 
 func (s *Session) writeLoop(readyWg, closeWg *sync.WaitGroup) {
+	atomic.StoreInt32(&s.wrunning, 1)
 	readyWg.Done()
 	for !s.IsClosed() {
 		s.cond.L.Lock()
-		for s.pipe.Len() == 0 {
+		for s.pipe.Len() == 0 && !s.IsClosed() {
 			s.cond.Wait()
-			if s.IsClosed() {
-				break
-			}
 		}
 		s.cond.L.Unlock()
+		if s.IsClosed() {
+			break
+		}
 		s.flush()
 	}
+	atomic.StoreInt32(&s.wrunning, 0)
+	s.flush()
 	closeWg.Done()
 }
 
