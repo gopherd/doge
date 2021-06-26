@@ -15,16 +15,21 @@ const (
 	// max message type
 	MaxType = 1 << 31
 
-	TextprotoType = 0x2B // char='+'
+	reservedType = 128
 )
 
 var (
-	textprotoPrefix = []byte{TextprotoType}
-	textprotoSuffix = []byte{'\r', '\n'}
+	crlf = []byte{'\r', '\n'}
 )
 
-func TextprotoPrefix() []byte { return textprotoPrefix }
-func TextprotoSuffix() []byte { return textprotoSuffix }
+// CRLF returns \r\n
+func CRLF() []byte { return crlf }
+
+// IsIgnoredType reports whether the type should be ignored
+func IsIgnoredType(typ Type) bool { return typ < 33 }
+
+// IsTextprotoType reports whether the type is a text protocol type
+func IsTextprotoType(typ Type) bool { return typ < reservedType }
 
 var (
 	ErrVarintOverflow   = errors.New("proto: varint overflow")
@@ -81,8 +86,8 @@ var (
 //		proto.Register("foo", BarType, func() proto.Message { return new(Bar) })
 //	}
 func Register(module string, typ Type, creator func() Message) {
-	if typ == TextprotoType {
-		panic(fmt.Sprintf("proto: Register type %d is reserved", typ))
+	if IsTextprotoType(typ) {
+		panic(fmt.Sprintf("proto: Register type %d is reserved textproto", typ))
 	}
 	if typ > MaxType {
 		panic(fmt.Sprintf("proto: Register type %d out of range [0, %d]", typ, MaxType))

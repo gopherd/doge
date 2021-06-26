@@ -196,13 +196,13 @@ func WithTimeout(timeout time.Duration) Option {
 
 // SessionEventHandler handles session events
 type SessionEventHandler interface {
-	OnReady()                                        // ready to read/write
-	OnClose(err error)                               // session closed, err maybe nil
-	OnMessage(typ proto.Type, body proto.Body) error // received a message
+	OnReady()                               // ready to read/write
+	OnClose(err error)                      // session closed, err maybe nil
+	OnMessage(proto.Type, proto.Body) error // received a message
 }
 
 type TextMessageHandler interface {
-	OnTextMessage(*textproto.Reader) error
+	OnTextMessage(proto.Type, *textproto.Reader) error
 }
 
 // Session wraps network session
@@ -406,11 +406,14 @@ func (s *Session) underlyingRead() error {
 		return err
 	}
 	// It's a textproto message
-	if typ == proto.TextprotoType && s.textproto.handler != nil {
+	if proto.IsTextprotoType(typ) && s.textproto.handler != nil {
+		if proto.IsIgnoredType(typ) {
+			return nil
+		}
 		if s.textproto.reader == nil {
 			s.textproto.reader = textproto.NewReader(s.reader.bufr)
 		}
-		return s.textproto.handler.OnTextMessage(s.textproto.reader)
+		return s.textproto.handler.OnTextMessage(typ, s.textproto.reader)
 	}
 	// handle the message body
 	size, err := proto.ReadSize(s.reader)
