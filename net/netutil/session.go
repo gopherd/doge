@@ -146,17 +146,24 @@ func (b *reader) Read(p []byte) (n int, err error) {
 	if b.size > 0 && len(p) > b.size {
 		p = p[:b.size]
 	}
-	n, err = b.bufr.Read(p)
-	if b.size > 0 {
-		b.size -= n
+	if len(p) > 0 {
+		n, err = b.bufr.Read(p)
+		if b.size > 0 {
+			b.size -= n
+		}
 	}
 	return
 }
 
 // Discard implements proto.Body Discard method
 func (b *reader) Discard(n int) (discarded int, err error) {
+	if b.size >= 0 && b.size < n {
+		return 0, io.EOF
+	}
 	discarded, err = b.bufr.Discard(n)
-	b.size -= discarded
+	if b.size > 0 {
+		b.size -= discarded
+	}
 	return
 }
 
