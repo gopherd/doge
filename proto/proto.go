@@ -136,7 +136,7 @@ func peekUvarint(peeker Peeker) (int, uint64, error) {
 
 func convertType(x uint64, err error) (Type, error) {
 	if err != nil {
-		return 0, nil
+		return 0, err
 	}
 	if x > MaxType {
 		return 0, ErrTypeOverflow
@@ -164,7 +164,7 @@ func EncodeType(buf []byte, typ Type) int {
 
 func convertSize(x uint64, err error) (int, error) {
 	if err != nil {
-		return 0, nil
+		return 0, err
 	}
 	if x > MaxSize {
 		return 0, ErrSizeOverflow

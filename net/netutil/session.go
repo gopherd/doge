@@ -155,14 +155,16 @@ func (b *reader) Read(p []byte) (n int, err error) {
 
 // Discard implements proto.Body Discard method
 func (b *reader) Discard(n int) (discarded int, err error) {
-	return b.bufr.Discard(n)
+	discarded, err = b.bufr.Discard(n)
+	b.size -= discarded
+	return
 }
 
-func (b *reader) discard() error {
+func (b *reader) discardAll() error {
 	if b.size <= 0 {
 		return nil
 	}
-	_, err := b.bufr.Discard(b.size)
+	_, err := b.Discard(b.size)
 	return err
 }
 
@@ -385,5 +387,5 @@ func (s *Session) underlyingRead() error {
 		return err
 	}
 	// discard unread bytes
-	return s.reader.discard()
+	return s.reader.discardAll()
 }
