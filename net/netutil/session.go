@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"net"
-	"net/textproto"
 	"os"
 	"reflect"
 	"runtime"
@@ -202,18 +201,15 @@ type SessionEventHandler interface {
 }
 
 type TextMessageHandler interface {
-	OnTextMessage(proto.Type, *textproto.Reader) error
+	OnTextMessage(proto.Type, *bufio.Reader) error
 }
 
 // Session wraps network session
 type Session struct {
-	textproto struct {
-		reader  *textproto.Reader
-		handler TextMessageHandler
-	}
-	reader  *reader
-	writer  *bufio.Writer
-	handler SessionEventHandler
+	reader           *reader
+	writer           *bufio.Writer
+	handler          SessionEventHandler
+	textprotoHandler TextMessageHandler
 
 	started  int32
 	closed   int32
@@ -241,7 +237,7 @@ func NewSession(conn net.Conn, handler SessionEventHandler, options ...Option) *
 	s.cond = sync.NewCond(&s.mutex)
 	s.bufw = make([]byte, s.pipe.PageSize())
 	if texthandler, ok := handler.(TextMessageHandler); ok {
-		s.textproto.handler = texthandler
+		s.textprotoHandler = texthandler
 	}
 	return s
 }
@@ -406,14 +402,12 @@ func (s *Session) underlyingRead() error {
 		return err
 	}
 	// It's a textproto message
-	if proto.IsTextprotoType(typ) && s.textproto.handler != nil {
+	if proto.IsTextprotoType(typ) && s.textprotoHandler != nil {
 		if proto.IsIgnoredType(typ) {
 			return nil
 		}
-		if s.textproto.reader == nil {
-			s.textproto.reader = textproto.NewReader(s.reader.bufr)
-		}
-		return s.textproto.handler.OnTextMessage(typ, s.textproto.reader)
+		err = s.textprotoHandler.OnTextMessage(typ, s.reader.bufr)
+		return err
 	}
 	// handle the message body
 	size, err := proto.ReadSize(s.reader)
