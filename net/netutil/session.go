@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -195,21 +196,21 @@ func WithTimeout(timeout time.Duration) Option {
 
 // SessionEventHandler handles session events
 type SessionEventHandler interface {
-	OnReady()                               // ready to read/write
+	OnOpen()                                // ready to read/write
 	OnClose(err error)                      // session closed, err maybe nil
+	OnHandshake(proto.ContentType) error    // session handshaked
 	OnMessage(proto.Type, proto.Body) error // received a message
-}
-
-type TextMessageHandler interface {
-	OnTextMessage(proto.Type, *bufio.Reader) error
 }
 
 // Session wraps network session
 type Session struct {
-	reader           *reader
-	writer           *bufio.Writer
-	handler          SessionEventHandler
-	textprotoHandler TextMessageHandler
+	reader  *reader
+	writer  *bufio.Writer
+	handler SessionEventHandler
+
+	// Handshake state
+	handshaked  bool
+	contentType proto.ContentType
 
 	started  int32
 	closed   int32
@@ -236,15 +237,17 @@ func NewSession(conn net.Conn, handler SessionEventHandler, options ...Option) *
 	}
 	s.cond = sync.NewCond(&s.mutex)
 	s.bufw = make([]byte, s.pipe.PageSize())
-	if texthandler, ok := handler.(TextMessageHandler); ok {
-		s.textprotoHandler = texthandler
-	}
 	return s
 }
 
 // Conn returns the underlying connection
 func (s *Session) Conn() net.Conn {
 	return s.reader.conn
+}
+
+// ContentType returns type of content
+func (s *Session) ContentType() proto.ContentType {
+	return s.contentType
 }
 
 // Write implements io.Writer Write method, this IS NOT thread-safe.
@@ -298,8 +301,9 @@ func (s *Session) Serve() bool {
 	go s.readLoop(&readyWg, &closeWg)
 	readyWg.Wait()
 
-	s.handler.OnReady()
+	s.handler.OnOpen()
 
+	// Blcoking
 	closeWg.Wait()
 	s.handler.OnClose(s.err)
 
@@ -401,13 +405,22 @@ func (s *Session) underlyingRead() error {
 	if err != nil {
 		return err
 	}
-	// It's a textproto message
-	if proto.IsTextprotoType(typ) && s.textprotoHandler != nil {
-		if proto.IsIgnoredType(typ) {
-			return nil
+	if !s.handshaked {
+		if err := s.handshake(typ); err != nil {
+			const msgprefix = "-handshake error: "
+			msg := err.Error()
+			var buf = make([]byte, 0, len(msgprefix)+len(msg)+2)
+			buf = append(buf, msgprefix...)
+			buf = append(buf, msg...)
+			buf = append(buf, '\r', '\n')
+			s.Write(buf)
+			return err
 		}
-		err = s.textprotoHandler.OnTextMessage(typ, s.reader.bufr)
-		return err
+		return nil
+	}
+	// If the session using textproto
+	if proto.IsTextproto(s.contentType) {
+		return s.handler.OnMessage(typ, s.reader)
 	}
 	// handle the message body
 	size, err := proto.ReadSize(s.reader)
@@ -420,4 +433,70 @@ func (s *Session) underlyingRead() error {
 	}
 	// discard unread bytes
 	return s.reader.discardAll()
+}
+
+// handshake message format:
+//
+// +hello[ contentType]\r\n
+//
+//  contentType is optional, it should be one of:
+//
+//		proto.ContentTypeProtobuf (default)
+//		proto.ContentTypeText
+//
+// If everything is ok, "-hello <contentType>\r\n" responded.
+//
+// example:
+//
+//  $ telnet 127.0.0.1 11001
+//  Trying 127.0.0.1...
+//  Connected to localhost.
+//  Escape character is '^]'.
+//  +hello 1
+//  -hello 1
+func (s *Session) handshake(typ proto.Type) error {
+	const (
+		handshakeRequset  = '+'
+		handshakeResponse = '-'
+		hello             = "hello"
+	)
+	if typ != handshakeRequset {
+		return proto.ErrNotHandshaked
+	}
+	line, err := s.reader.bufr.ReadString('\n')
+	if err != nil {
+		return err
+	}
+	n := len(line)
+	if n > 0 && line[n-1] == '\n' {
+		line = line[:n-1]
+		if n > 1 && line[n-2] == '\r' {
+			line = line[:n-2]
+		}
+	}
+	if !strings.HasPrefix(line, hello) {
+		return proto.ErrNotHandshaked
+	}
+	var contentType = proto.ContentTypeProtobuf
+	line = line[len(hello):]
+	if len(line) > 0 {
+		t, err := strconv.Atoi(line[1:])
+		if err != nil {
+			return proto.ErrNotHandshaked
+		}
+		contentType = proto.ContentType(t)
+	}
+	if err := s.handler.OnHandshake(contentType); err != nil {
+		return err
+	}
+	s.handshaked = true
+	s.contentType = contentType
+	var buf = make([]byte, 0, 16)
+	buf = append(buf, handshakeResponse)
+	buf = append(buf, hello...)
+	buf = append(buf, ' ')
+	buf = strconv.AppendInt(buf, int64(contentType), 10)
+	buf = append(buf, '\r', '\n')
+	_, err = s.Write(buf)
+	return err
 }

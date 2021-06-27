@@ -110,7 +110,7 @@ func (l *Lexer) Next() ([]rune, bool, error) {
 
 // Tokenizer turns an input stream into a sequence of typed tokens
 type Tokenizer struct {
-	input      *bufio.Reader
+	input      io.RuneReader
 	classifier tokenClassifier
 }
 
@@ -119,8 +119,8 @@ func NewTokenizer(r io.Reader) *Tokenizer {
 	t := &Tokenizer{
 		classifier: newDefaultClassifier(),
 	}
-	if bufr, ok := r.(*bufio.Reader); ok {
-		t.input = bufr
+	if rr, ok := r.(io.RuneReader); ok {
+		t.input = rr
 	} else {
 		t.input = bufio.NewReader(r)
 	}

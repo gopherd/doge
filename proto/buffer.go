@@ -1,6 +1,7 @@
 package proto
 
 import (
+	"encoding/json"
 	"sync"
 )
 
@@ -64,9 +65,16 @@ func (b *Buffer) Unmarshal(m Message) error {
 	return Unmarshal(b.Bytes(), m)
 }
 
-func (b *Buffer) Encode(m Message) error {
+func (b *Buffer) Encode(m Message, contentType ContentType) error {
 	b.Reset()
 	var err error
-	b.buf, err = EncodeAppend(b.buf, m)
+	switch contentType {
+	case ContentTypeText:
+		err = json.NewEncoder(b).Encode(m)
+	case ContentTypeProtobuf:
+		b.buf, err = EncodeAppend(b.buf, m)
+	default:
+		err = ErrUnsupportedContentType
+	}
 	return err
 }

@@ -1,6 +1,8 @@
 package proto
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -14,30 +16,28 @@ const (
 	MaxSize = 1 << 30
 	// max message type
 	MaxType = 1 << 31
-
-	reservedType = 128
 )
 
 var (
-	crlf = []byte{'\r', '\n'}
+	ErrVarintOverflow         = errors.New("proto: varint overflow")
+	ErrSizeOverflow           = errors.New("proto: size overflow")
+	ErrTypeOverflow           = errors.New("proto: type overflow")
+	ErrOutOfRange             = errors.New("proto: out of range")
+	ErrUnrecognizedType       = errors.New("proto: unrecognized message type")
+	ErrUnsupportedContentType = errors.New("proto: unsupported content type")
+	ErrNotHandshaked          = errors.New("proto: not handshaked")
 )
 
-// CRLF returns \r\n
-func CRLF() []byte { return crlf }
+type ContentType int
 
-// IsIgnoredType reports whether the type should be ignored
-func IsIgnoredType(typ Type) bool { return typ < 33 }
-
-// IsTextprotoType reports whether the type is a text protocol type
-func IsTextprotoType(typ Type) bool { return typ < reservedType }
-
-var (
-	ErrVarintOverflow   = errors.New("proto: varint overflow")
-	ErrSizeOverflow     = errors.New("proto: size overflow")
-	ErrTypeOverflow     = errors.New("proto: type overflow")
-	ErrOutOfRange       = errors.New("proto: out of range")
-	ErrUnrecognizedType = errors.New("proto: unrecognized type")
+const (
+	ContentTypeProtobuf ContentType = iota
+	ContentTypeText
 )
+
+func IsTextproto(contentType ContentType) bool {
+	return contentType > ContentTypeProtobuf
+}
 
 // Type represents message type
 type Type = uint32
@@ -58,6 +58,24 @@ type Body interface {
 	// Discard skips the next n bytes, returning the number of bytes discarded.
 	// If Discard skips fewer than n bytes, it also returns an error.
 	Discard(n int) (discarded int, err error)
+}
+
+// textReader implements Body interface
+type textReader struct {
+	*bufio.Reader
+	content *bytes.Reader
+}
+
+// Len implements Body Len method
+func (tr *textReader) Len() int { return tr.content.Len() }
+
+// Text creates a textproto body
+func Text(b []byte) Body {
+	content := bytes.NewReader(b)
+	return &textReader{
+		Reader:  bufio.NewReader(content),
+		content: content,
+	}
 }
 
 // Message represents a message interface
@@ -86,9 +104,6 @@ var (
 //		proto.Register("foo", BarType, func() proto.Message { return new(Bar) })
 //	}
 func Register(module string, typ Type, creator func() Message) {
-	if IsTextprotoType(typ) {
-		panic(fmt.Sprintf("proto: Register type %d is reserved textproto", typ))
-	}
 	if typ > MaxType {
 		panic(fmt.Sprintf("proto: Register type %d out of range [0, %d]", typ, MaxType))
 	}
