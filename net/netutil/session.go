@@ -24,8 +24,7 @@ const (
 )
 
 var (
-	// content length greater than MaxContentLength
-	ErrContentLengthOverflow = errors.New("content length overflow")
+	ErrNotHandshaked = errors.New("not handshaked")
 )
 
 // errno returns v's underlying uintptr, else 0.
@@ -407,9 +406,10 @@ func (s *Session) underlyingRead() error {
 	}
 	if !s.handshaked {
 		if err := s.handshake(typ); err != nil {
-			const msgprefix = "-handshake error: "
+			const msgprefix = "error: "
 			msg := err.Error()
-			var buf = make([]byte, 0, len(msgprefix)+len(msg)+2)
+			var buf = make([]byte, 0, len(msgprefix)+len(msg)+3)
+			buf = append(buf, proto.TextErrorType)
 			buf = append(buf, msgprefix...)
 			buf = append(buf, msg...)
 			buf = append(buf, '\r', '\n')
@@ -437,14 +437,14 @@ func (s *Session) underlyingRead() error {
 
 // handshake message format:
 //
-// +hello[ contentType]\r\n
+// .hello[ contentType]\r\n
 //
 //  contentType is optional, it should be one of:
 //
 //		proto.ContentTypeProtobuf (default)
 //		proto.ContentTypeText
 //
-// If everything is ok, "-hello <contentType>\r\n" responded.
+// If everything is ok, "+hello <contentType>\r\n" responded.
 //
 // example:
 //
@@ -452,16 +452,14 @@ func (s *Session) underlyingRead() error {
 //  Trying 127.0.0.1...
 //  Connected to localhost.
 //  Escape character is '^]'.
+//  .hello 1
 //  +hello 1
-//  -hello 1
 func (s *Session) handshake(typ proto.Type) error {
 	const (
-		handshakeRequset  = '+'
-		handshakeResponse = '-'
-		hello             = "hello"
+		hello = "hello"
 	)
-	if typ != handshakeRequset {
-		return proto.ErrNotHandshaked
+	if typ != proto.TextRequestType {
+		return ErrNotHandshaked
 	}
 	line, err := s.reader.bufr.ReadString('\n')
 	if err != nil {
@@ -475,14 +473,14 @@ func (s *Session) handshake(typ proto.Type) error {
 		}
 	}
 	if !strings.HasPrefix(line, hello) {
-		return proto.ErrNotHandshaked
+		return ErrNotHandshaked
 	}
 	var contentType = proto.ContentTypeProtobuf
 	line = line[len(hello):]
 	if len(line) > 0 {
 		t, err := strconv.Atoi(line[1:])
 		if err != nil {
-			return proto.ErrNotHandshaked
+			return ErrNotHandshaked
 		}
 		contentType = proto.ContentType(t)
 	}
@@ -492,7 +490,7 @@ func (s *Session) handshake(typ proto.Type) error {
 	s.handshaked = true
 	s.contentType = contentType
 	var buf = make([]byte, 0, 16)
-	buf = append(buf, handshakeResponse)
+	buf = append(buf, proto.TextResponseType)
 	buf = append(buf, hello...)
 	buf = append(buf, ' ')
 	buf = strconv.AppendInt(buf, int64(contentType), 10)

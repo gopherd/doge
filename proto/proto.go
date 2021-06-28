@@ -26,7 +26,6 @@ var (
 	ErrOutOfRange             = errors.New("proto: out of range")
 	ErrUnrecognizedType       = errors.New("proto: unrecognized message type")
 	ErrUnsupportedContentType = errors.New("proto: unsupported content type")
-	ErrNotHandshaked          = errors.New("proto: not handshaked")
 )
 
 // ContentType represents encoding type of content
@@ -44,6 +43,12 @@ func IsTextproto(contentType ContentType) bool {
 
 // Type represents message type
 type Type = uint32
+
+const (
+	TextRequestType  = '.'
+	TextResponseType = '+'
+	TextErrorType    = '-'
+)
 
 // Body represents message body
 type Body interface {
