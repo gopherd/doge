@@ -58,18 +58,26 @@ type DiscoveryContent struct {
 	} `json:"state"` // runtime state of service
 }
 
-// Service represents a process
-type Service interface {
+// Meta represents metadata of service
+type Meta interface {
 	// ID returns id of service
 	ID() int64
 	// Name of service
 	Name() string
 	// Global unique instance id of service
 	UUID() string
-	// SetState sets state of service
-	SetState(state State) error
 	// Busy reports whether the service is busy
 	Busy() bool
+	// State returns state of service
+	State() State
+}
+
+// Service represents a process
+type Service interface {
+	Meta
+
+	// SetState sets state of service
+	SetState(state State) error
 	// Init initializes the service
 	Init() error
 	// Start starts the service
@@ -213,10 +221,9 @@ func (app *BaseService) UUID() string {
 	return app.uuid
 }
 
-// SetState implements Service SetState method
-func (app *BaseService) SetState(state State) error {
-	app.state = state
-	return app.register(state == Running)
+// Busy implements Service Busy method
+func (app *BaseService) Busy() bool {
+	return false
 }
 
 // State returns state of service
@@ -224,9 +231,10 @@ func (app *BaseService) State() State {
 	return app.state
 }
 
-// Busy implements Service Busy method
-func (app *BaseService) Busy() bool {
-	return false
+// SetState implements Service SetState method
+func (app *BaseService) SetState(state State) error {
+	app.state = state
+	return app.register(state == Running)
 }
 
 // Discovery returns the discovery engine

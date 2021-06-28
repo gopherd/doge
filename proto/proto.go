@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -28,6 +29,7 @@ var (
 	ErrNotHandshaked          = errors.New("proto: not handshaked")
 )
 
+// ContentType represents encoding type of content
 type ContentType int
 
 const (
@@ -35,6 +37,7 @@ const (
 	ContentTypeText
 )
 
+// IsTextproto reports whether the contentType is a textproto type
 func IsTextproto(contentType ContentType) bool {
 	return contentType > ContentTypeProtobuf
 }
@@ -103,6 +106,7 @@ var (
 //	func init() {
 //		proto.Register("foo", BarType, func() proto.Message { return new(Bar) })
 //	}
+//
 func Register(module string, typ Type, creator func() Message) {
 	if typ > MaxType {
 		panic(fmt.Sprintf("proto: Register type %d out of range [0, %d]", typ, MaxType))
@@ -178,6 +182,18 @@ func convertType(x uint64, err error) (Type, error) {
 	return Type(x), nil
 }
 
+// ParseType parses type from string
+func ParseType(s string) (Type, error) {
+	typ, err := strconv.ParseInt(s, 0, 64)
+	if err != nil {
+		return 0, err
+	}
+	if typ < 0 || typ >= MaxType {
+		return 0, ErrTypeOverflow
+	}
+	return Type(typ), nil
+}
+
 // ReadType reads message type from reader
 func ReadType(r io.ByteReader) (typ Type, err error) {
 	return convertType(binary.ReadUvarint(r))
@@ -234,13 +250,10 @@ func sizeofUvarint(x uint64) int {
 	return i + 1
 }
 
-func sizeof(m Message) (msize, ssize int) {
-	return
-}
-
-// Encode returns the wire-format encoding of m with size and type.
+// Encode returns the wire-format encoding of m with type and size.
 //
 //	|type|body.size|body|
+//
 func Encode(m Message, reservedHeadLen int) ([]byte, error) {
 	if m == nil {
 		return nil, nil
@@ -257,6 +270,7 @@ func Encode(m Message, reservedHeadLen int) ([]byte, error) {
 	return buf, err
 }
 
+// EncodeAppend encodes m to buf
 func EncodeAppend(buf []byte, m Message) ([]byte, error) {
 	if m == nil {
 		return nil, nil
@@ -290,12 +304,12 @@ func encodeAppend(buf []byte, m Message, size int) ([]byte, error) {
 	return buf, err
 }
 
-// Marshal returns the wire-format encoding of m without size or type.
+// Marshal returns the wire-format encoding of m without type or size.
 func Marshal(m Message) ([]byte, error) {
 	return proto.Marshal(m)
 }
 
-// Decode decodes one message with size and type from buf and
+// Decode decodes one message with type and size from buf and
 // returns number of bytes read and unmarshaled message.
 func Decode(buf []byte) (int, Message, error) {
 	off := 0
