@@ -20,8 +20,8 @@ import (
 	"github.com/gopherd/doge/erron"
 	"github.com/gopherd/doge/mq"
 	"github.com/gopherd/doge/os/signal"
-	"github.com/gopherd/doge/service/component"
 	"github.com/gopherd/doge/service/discovery"
+	"github.com/gopherd/doge/service/module"
 	"github.com/gopherd/doge/time/timer"
 )
 
@@ -178,9 +178,9 @@ type BaseService struct {
 		canReload bool
 	}
 
-	discovery  discovery.Discovery
-	mq         mq.Conn
-	components *component.Manager
+	discovery discovery.Discovery
+	mq        mq.Conn
+	modules   *module.Manager
 
 	tickers struct {
 		keepalive *timer.Ticker
@@ -191,9 +191,9 @@ type BaseService struct {
 // NewBaseService creates a BaseService
 func NewBaseService(self Service, cfg config.Configurator) *BaseService {
 	s := &BaseService{
-		self:       self,
-		uuid:       strings.ReplaceAll(uuid.NewString(), "-", ""),
-		components: component.NewManager(),
+		self:    self,
+		uuid:    strings.ReplaceAll(uuid.NewString(), "-", ""),
+		modules: module.NewManager(),
 	}
 	s.config.ptr.Store(cfg)
 	_, s.config.canReload = self.(ConfigRewriter)
@@ -202,8 +202,8 @@ func NewBaseService(self Service, cfg config.Configurator) *BaseService {
 	return s
 }
 
-func (app *BaseService) AddComponent(com component.Component) component.Component {
-	return app.components.Add(com)
+func (app *BaseService) AddModule(com module.Module) module.Module {
+	return app.modules.Add(com)
 }
 
 // Name implements Service Name method
@@ -424,23 +424,23 @@ func (app *BaseService) Init() error {
 		app.mq = q
 	}
 
-	return app.components.Init()
+	return app.modules.Init()
 }
 
 // Start implements Service Start method
 func (app *BaseService) Start() {
-	app.components.Start()
+	app.modules.Start()
 }
 
 // Shutdown implements Service Shutdown method
 func (app *BaseService) Shutdown() {
-	app.components.Shutdown()
+	app.modules.Shutdown()
 	app.unregister()
 }
 
 // Update updates per frame
 func (app *BaseService) Update(now time.Time, dt time.Duration) {
-	app.components.Update(now, dt)
+	app.modules.Update(now, dt)
 	if app.tickers.keepalive.Next(now) {
 		app.register(false)
 	}
