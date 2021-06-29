@@ -44,16 +44,10 @@ func IsTextproto(contentType ContentType) bool {
 // Type represents message type
 type Type = uint32
 
-const (
-	TextRequestType  = '.'
-	TextResponseType = '+'
-	TextErrorType    = '-'
-)
-
 // Body represents message body
 type Body interface {
-	io.ByteReader
 	io.Reader
+	io.ByteReader
 
 	// Len returns remain length of body
 	Len() int

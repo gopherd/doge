@@ -3,6 +3,7 @@ package netutil
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -16,15 +17,20 @@ import (
 
 	"github.com/gopherd/doge/io/pagebuf"
 	"github.com/gopherd/doge/proto"
+	"github.com/gopherd/doge/text/resp"
+	"github.com/gopherd/log"
 )
 
 const (
 	// max length of content: 1G
 	MaxContentLength = 1 << 30
+
+	hello = "hello"
 )
 
 var (
-	ErrNotHandshaked = errors.New("not handshaked")
+	ErrNotHandshaked  = errors.New("hello command required")
+	ErrInvalidCommand = errors.New("invalid command")
 )
 
 // errno returns v's underlying uintptr, else 0.
@@ -201,11 +207,17 @@ type SessionEventHandler interface {
 	OnMessage(proto.Type, proto.Body) error // received a message
 }
 
+type CommandHandler interface {
+	OnCommand(*resp.Command) error
+}
+
 // Session wraps network session
 type Session struct {
-	reader  *reader
-	writer  *bufio.Writer
-	handler SessionEventHandler
+	reader         *reader
+	writer         *bufio.Writer
+	handler        SessionEventHandler
+	command        *resp.Command
+	commandHandler CommandHandler
 
 	// Handshake state
 	handshaked  bool
@@ -214,7 +226,9 @@ type Session struct {
 	started  int32
 	closed   int32
 	wrunning int32
-	err      error
+
+	errMu sync.RWMutex
+	err   error
 
 	mutex sync.Mutex
 	cond  *sync.Cond
@@ -233,6 +247,9 @@ func NewSession(conn net.Conn, handler SessionEventHandler, options ...Option) *
 		writer:  bufio.NewWriter(conn),
 		handler: handler,
 		pipe:    pagebuf.NewPageBuffer(),
+	}
+	if commandHandler, ok := handler.(CommandHandler); ok {
+		s.commandHandler = commandHandler
 	}
 	s.cond = sync.NewCond(&s.mutex)
 	s.bufw = make([]byte, s.pipe.PageSize())
@@ -304,10 +321,24 @@ func (s *Session) Serve() bool {
 
 	// Blcoking
 	closeWg.Wait()
-	s.handler.OnClose(s.err)
 
-	if s.err != nil {
+	s.errMu.RLock()
+	err := s.err
+	s.errMu.RUnlock()
+
+	s.handler.OnClose(err)
+	if err == nil {
 		s.flush()
+	}
+	if proto.IsTextproto(s.contentType) {
+		if err == nil || !IsNetworkError(err) {
+			if err != nil {
+				fmt.Fprintf(s.writer, "-connection closed because of %q\r\n", err.Error())
+			} else {
+				fmt.Fprintf(s.writer, "-connection closed\r\n")
+			}
+			s.writer.Flush()
+		}
 	}
 	// close the underlying connection
 	s.reader.conn.Close()
@@ -322,15 +353,16 @@ func (s *Session) IsClosed() bool {
 
 func (s *Session) setClosed(err error) {
 	if err != nil {
+		s.errMu.Lock()
 		s.err = err
+		s.errMu.Unlock()
 	}
 	atomic.StoreInt32(&s.closed, 1)
 }
 
 // Close closes the session
-func (s *Session) Close() error {
-	s.setClosed(nil)
-	return nil
+func (s *Session) Close(err error) {
+	s.setClosed(err)
 }
 
 func (s *Session) readLoop(readyWg, closeWg *sync.WaitGroup) {
@@ -400,17 +432,15 @@ func (s *Session) underlyingWrite(p []byte) error {
 func (s *Session) underlyingRead() error {
 	// read type of message body
 	s.reader.size = -1
-	typ, err := proto.ReadType(s.reader)
+	n, typ, err := proto.PeekType(s.reader)
 	if err != nil {
 		return err
 	}
 	if !s.handshaked {
 		if err := s.handshake(typ); err != nil {
-			const msgprefix = "error: "
 			msg := err.Error()
-			var buf = make([]byte, 0, len(msgprefix)+len(msg)+3)
-			buf = append(buf, proto.TextErrorType)
-			buf = append(buf, msgprefix...)
+			var buf = make([]byte, 0, len(msg)+3)
+			buf = append(buf, resp.ErrorType.Byte())
 			buf = append(buf, msg...)
 			buf = append(buf, '\r', '\n')
 			s.Write(buf)
@@ -419,8 +449,20 @@ func (s *Session) underlyingRead() error {
 		return nil
 	}
 	// If the session using textproto
-	if proto.IsTextproto(s.contentType) {
-		return s.handler.OnMessage(typ, s.reader)
+	if proto.IsTextproto(s.contentType) && s.commandHandler != nil {
+		if err := s.readCommand(); err != nil {
+			return err
+		}
+		if s.command.Is(hello) {
+			_, err := s.Write([]byte("-don't hello again\r\n"))
+			return err
+		}
+		return s.commandHandler.OnCommand(s.command)
+	}
+
+	// discard read type
+	if _, err := s.reader.Discard(n); err != nil {
+		return err
 	}
 	// handle the message body
 	size, err := proto.ReadSize(s.reader)
@@ -435,16 +477,40 @@ func (s *Session) underlyingRead() error {
 	return s.reader.discardAll()
 }
 
+func (s *Session) readCommand() error {
+	if s.command == nil {
+		s.command = resp.NewCommand()
+	} else {
+		s.command.Request.Reset()
+	}
+
+	if err := s.command.Request.ReadFrom(s.reader.bufr); err != nil {
+		return err
+	}
+	switch s.command.Request.Type {
+	case resp.StringType:
+		values := strings.Split(string(s.command.Request.Value()), " ")
+		s.command.Request.SetArray(len(values))
+		for i := range values {
+			s.command.Request.Append(resp.StringType, []byte(values[i]))
+		}
+	case resp.ArrayType:
+	default:
+		return ErrInvalidCommand
+	}
+	if len(s.command.Request.Elements()) == 0 {
+		return resp.ErrNumberOfArguments
+	}
+	log.Debug().Any("command", s.command.Request).Print("read a command")
+	return nil
+}
+
 // handshake message format:
 //
-// .hello[ contentType]\r\n
-//
-//  contentType is optional, it should be one of:
-//
-//		proto.ContentTypeProtobuf (default)
-//		proto.ContentTypeText
+// +hello <contentType>\r\n
 //
 // If everything is ok, "+hello <contentType>\r\n" responded.
+// Otherwise, "-Error message\r\n" responded.
 //
 // example:
 //
@@ -452,45 +518,46 @@ func (s *Session) underlyingRead() error {
 //  Trying 127.0.0.1...
 //  Connected to localhost.
 //  Escape character is '^]'.
-//  .hello 1
 //  +hello 1
+//  +hello 1
+//
+//  $ telnet 127.0.0.1 11001
+//  Trying 127.0.0.1...
+//  Connected to localhost.
+//  Escape character is '^]'.
+//  +hello
+//  -not handshaked
 func (s *Session) handshake(typ proto.Type) error {
-	const (
-		hello = "hello"
-	)
-	if typ != proto.TextRequestType {
+	if err := s.readCommand(); err != nil {
+		return err
+	}
+	name := strings.ToLower(s.command.Name())
+	if name == "command" {
+		// ignore "command" for redis-cli
+		_, err := s.Write([]byte("+ignore\r\n"))
+		return err
+	}
+	if name != hello {
+		println("handshake: " + name)
 		return ErrNotHandshaked
 	}
-	line, err := s.reader.bufr.ReadString('\n')
+	if s.command.NumArg() != 1 {
+		return resp.ErrNumberOfArguments
+	}
+
+	var contentType proto.ContentType
+	t, err := strconv.Atoi(string(s.command.Arg(0).Value()))
 	if err != nil {
 		return err
 	}
-	n := len(line)
-	if n > 0 && line[n-1] == '\n' {
-		line = line[:n-1]
-		if n > 1 && line[n-2] == '\r' {
-			line = line[:n-2]
-		}
-	}
-	if !strings.HasPrefix(line, hello) {
-		return ErrNotHandshaked
-	}
-	var contentType = proto.ContentTypeProtobuf
-	line = line[len(hello):]
-	if len(line) > 0 {
-		t, err := strconv.Atoi(line[1:])
-		if err != nil {
-			return ErrNotHandshaked
-		}
-		contentType = proto.ContentType(t)
-	}
+	contentType = proto.ContentType(t)
 	if err := s.handler.OnHandshake(contentType); err != nil {
 		return err
 	}
 	s.handshaked = true
 	s.contentType = contentType
 	var buf = make([]byte, 0, 16)
-	buf = append(buf, proto.TextResponseType)
+	buf = append(buf, resp.StringType.Byte())
 	buf = append(buf, hello...)
 	buf = append(buf, ' ')
 	buf = strconv.AppendInt(buf, int64(contentType), 10)

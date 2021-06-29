@@ -2,7 +2,10 @@ package proto
 
 import (
 	"encoding/json"
+	"strconv"
 	"sync"
+
+	"github.com/gopherd/doge/text/resp"
 )
 
 var bufferp = sync.Pool{
@@ -70,7 +73,18 @@ func (b *Buffer) Encode(m Message, contentType ContentType) error {
 	var err error
 	switch contentType {
 	case ContentTypeText:
+		b.buf = append(b.buf, resp.StringType.Byte())
+		b.buf = strconv.AppendInt(b.buf, int64(m.Type()), 10)
+		b.buf = append(b.buf, ' ')
 		err = json.NewEncoder(b).Encode(m)
+		if err == nil {
+			if n := len(b.buf); n > 0 && b.buf[n-1] == '\n' {
+				b.buf[n-1] = '\r'
+				b.buf = append(b.buf, '\n')
+			} else {
+				b.buf = append(b.buf, '\r', '\n')
+			}
+		}
 	case ContentTypeProtobuf:
 		b.buf, err = EncodeAppend(b.buf, m)
 	default:
