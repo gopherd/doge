@@ -89,8 +89,9 @@ type Message interface {
 }
 
 var (
-	creators = make(map[Type]func() Message)
-	modules  = make(map[string][]Type)
+	creators  = make(map[Type]func() Message)
+	mods      = make(map[string][]Type)
+	type2mods = make(map[Type]string)
 )
 
 // Register registers a message creator by type. Register is not
@@ -106,7 +107,7 @@ var (
 //		proto.Register("foo", BarType, func() proto.Message { return new(Bar) })
 //	}
 //
-func Register(module string, typ Type, creator func() Message) {
+func Register(mod string, typ Type, creator func() Message) {
 	if typ > MaxType {
 		panic(fmt.Sprintf("proto: Register type %d out of range [0, %d]", typ, MaxType))
 	}
@@ -117,7 +118,8 @@ func Register(module string, typ Type, creator func() Message) {
 		panic(fmt.Sprintf("proto: Register called twice for type %d", typ))
 	}
 	creators[typ] = creator
-	modules[module] = append(modules[module], typ)
+	mods[mod] = append(mods[mod], typ)
+	type2mods[typ] = mod
 }
 
 // New creates a message by type, nil returned if type not found
@@ -130,7 +132,7 @@ func New(typ Type) Message {
 
 // Lookup lookups all registered types by module
 func Lookup(module string) []Type {
-	return modules[module]
+	return mods[module]
 }
 
 // Sizeof calculates the exact size of marshaled bytes
@@ -141,6 +143,11 @@ func Sizeof(m Message) int {
 // Nameof returns the name of message
 func Nameof(m Message) string {
 	return string(proto.MessageName(m))
+}
+
+// Moduleof returns the module name of message by type
+func Moduleof(typ Type) string {
+	return type2mods[typ]
 }
 
 // Peeker peeks n bytes
