@@ -1,254 +1,201 @@
 package router
 
 import (
+	"container/heap"
 	"context"
-	"encoding/json"
-	"fmt"
-	"sort"
-	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"github.com/gopherd/doge/proto"
 	"github.com/gopherd/doge/service/discovery"
 )
 
-type Target struct {
-	Address  string
-	Priority int
-}
-
-type Targets []Target
-
-func (ts Targets) Len() int           { return len(ts) }
-func (ts Targets) Less(i, j int) bool { return ts[i].Priority < ts[j].Priority }
-func (ts Targets) Swap(i, j int)      { ts[i], ts[j] = ts[j], ts[i] }
-
-type Router struct {
-	Module  string     `json:"module"`
-	MinType proto.Type `json:"min_type"`
-	MaxType proto.Type `json:"max_type"`
-	Targets Targets    `json:"targets"`
-}
-
-func (r Router) Key() string {
-	if r.MinType == 0 && r.MaxType == 0 {
-		return r.Module
-	}
-	return fmt.Sprintf("%s/%d/%d", r.Module, r.MinType, r.MaxType)
-}
-
-func (r Router) Marshal() ([]byte, error) {
-	return json.Marshal(r)
-}
-
-func (r *Router) Unmarshal(data []byte) error {
-	return json.Unmarshal(data, r)
-}
-
-func (r Router) Less(r2 Router) bool {
-	return r.less(r2.Module, r2.MinType)
-}
-
-func (r Router) less(mod string, typ proto.Type) bool {
-	if r.Module == mod {
-		return r.MinType < typ
-	}
-	return r.Module < mod
-}
-
-func (r Router) has(mod string, typ proto.Type) bool {
-	if r.Module != mod {
-		return false
-	}
-	if r.MinType == 0 && r.MaxType == 0 {
-		return true
-	}
-	return typ >= r.MinType && typ <= r.MaxType
-}
-
-func (r Router) getTarget() string {
-	return r.Targets[0].Address
-}
-
 const (
-	prefix   = "message/router/"
-	prefix0  = prefix + "0"
-	cacheTTL = time.Second * 60
+	prefix   = "message/router"
+	cacheTTL = time.Second * 3
 )
 
-func Register(ctx context.Context, discovery discovery.Discovery, uid int64, router Router, ttl time.Duration) error {
-	content, err := router.Marshal()
-	if err != nil {
-		return err
-	}
-	name := prefix + strconv.FormatInt(uid, 10)
-	return discovery.Register(ctx, name, router.Key(), string(content), false, ttl)
+func Register(ctx context.Context, discovery discovery.Discovery, mod, addr string, ttl time.Duration) error {
+	return discovery.Register(ctx, prefix, mod, addr, false, ttl)
 }
 
-func Unregister(ctx context.Context, discovery discovery.Discovery, uid int64, router Router) error {
-	name := prefix + strconv.FormatInt(uid, 10)
-	return discovery.Unregister(ctx, name, router.Key())
+func Unregister(ctx context.Context, discovery discovery.Discovery, mod string) error {
+	return discovery.Unregister(ctx, prefix, mod)
+}
+
+type router struct {
+	expires time.Time
+	address string
 }
 
 type routers struct {
-	expires time.Time
-	routers []Router
+	routers []router
+	indices map[string]int
 }
 
-func (rs *routers) Len() int           { return len(rs.routers) }
-func (rs *routers) Less(i, j int) bool { return rs.routers[i].Less(rs.routers[j]) }
-func (rs *routers) Swap(i, j int)      { rs.routers[i], rs.routers[j] = rs.routers[j], rs.routers[i] }
-
-func (rs *routers) autofix() {
-	for i := len(rs.routers) - 1; i >= 0; i-- {
-		if len(rs.routers[i].Targets) == 0 {
-			rs.routers = append(rs.routers[:i], rs.routers[i+1:]...)
-			continue
-		}
-		sort.Sort(rs.routers[i].Targets)
+func newRouters() *routers {
+	return &routers{
+		indices: make(map[string]int),
 	}
-	sort.Sort(rs)
 }
 
-func (rs *routers) lookup(mod string, typ proto.Type) string {
-	i, j := 0, len(rs.routers)
-	for i < j {
-		h := int(uint(i+j) >> 1)
-		if rs.routers[h].less(mod, typ) {
-			i = h + 1
-		} else {
-			j = h
-		}
+func (rs routers) Len() int           { return len(rs.routers) }
+func (rs routers) Less(i, j int) bool { return rs.routers[i].expires.Before(rs.routers[j].expires) }
+func (rs routers) Swap(i, j int) {
+	rs.routers[i], rs.routers[j] = rs.routers[j], rs.routers[i]
+	rs.indices[rs.routers[i].address] = i
+	rs.indices[rs.routers[j].address] = j
+}
+func (rs *routers) Push(x interface{}) {
+	r := x.(router)
+	rs.indices[r.address] = len(rs.routers)
+	rs.routers = append(rs.routers, r)
+}
+func (rs *routers) Pop() interface{} {
+	end := len(rs.routers) - 1
+	last := rs.routers[end]
+	delete(rs.indices, last.address)
+	rs.routers = rs.routers[:end]
+	return last
+}
+
+func (rs *routers) add(mod, addr string, expires time.Time) {
+	if i, ok := rs.indices[mod]; ok {
+		rs.routers[i].address = addr
+		rs.routers[i].expires = expires
+		heap.Fix(rs, i)
+	} else {
+		heap.Push(rs, router{
+			expires: expires,
+			address: addr,
+		})
 	}
-	if i == len(rs.routers) {
-		if len(rs.routers) > 0 {
-			if rs.routers[0].has(mod, typ) {
-				return rs.routers[0].getTarget()
-			}
-		}
-		return ""
+}
+
+func (rs *routers) remove(mod string) {
+	if i, ok := rs.indices[mod]; ok {
+		heap.Remove(rs, i)
 	}
-	if rs.routers[i].has(mod, typ) {
-		return rs.routers[i].getTarget()
+}
+
+func (rs *routers) find(mod string, now time.Time) (string, bool) {
+	if i, ok := rs.indices[mod]; ok && rs.routers[i].expires.Before(now) {
+		return rs.routers[i].address, true
 	}
-	if rs.routers[0].has(mod, typ) {
-		return rs.routers[0].getTarget()
-	}
-	return ""
+	return "", false
 }
 
 type Cache struct {
 	discovery discovery.Discovery
 
 	mu      sync.RWMutex
-	shared  *routers
-	routers map[int64]*routers
+	routers *routers
+
+	quit, wait chan struct{}
+	running    int32
 }
 
 func NewCache(discovery discovery.Discovery) *Cache {
 	return &Cache{
 		discovery: discovery,
-		routers:   make(map[int64]*routers),
+		routers:   newRouters(),
+		quit:      make(chan struct{}),
+		wait:      make(chan struct{}),
 	}
 }
 
 func (cache *Cache) Init() error {
-	if routers, err := cache.load(prefix0); err != nil {
+	values, err := cache.discovery.ResolveAll(context.Background(), prefix)
+	if err != nil {
 		return err
-	} else {
-		cache.mu.Lock()
-		defer cache.mu.Unlock()
-		cache.shared = routers
+	}
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	expires := time.Now().Add(cacheTTL)
+	for mod, addr := range values {
+		cache.routers.add(mod, addr, expires)
 	}
 	return nil
 }
 
-func (cache *Cache) Add(uid int64, rs []Router) {
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-	if uid == 0 {
-		cache.shared = &routers{
-			expires: time.Now().Add(cacheTTL),
-			routers: rs,
-		}
-	} else {
-		cache.routers[uid] = &routers{
-			expires: time.Now().Add(cacheTTL),
-			routers: rs,
+func (cache *Cache) Start() {
+	if atomic.CompareAndSwapInt32(&cache.running, 0, 1) {
+		go cache.run()
+	}
+}
+
+func (cache *Cache) Shutdown() {
+	if atomic.CompareAndSwapInt32(&cache.running, 1, 0) {
+		close(cache.quit)
+		<-cache.wait
+	}
+}
+
+func (cache *Cache) run() {
+	ticker := time.NewTicker(time.Millisecond * 100)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			for cache.tryReloadFirst() {
+			}
+		case <-cache.quit:
+			close(cache.wait)
+			return
 		}
 	}
 }
 
-func (cache *Cache) Remove(uid int64) {
+func (cache *Cache) Add(mod, addr string) {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
-	delete(cache.routers, uid)
+	expires := time.Now().Add(cacheTTL)
+	cache.routers.add(mod, addr, expires)
 }
 
-func (cache *Cache) Lookup(uid int64, mod string, typ proto.Type) (string, error) {
-	if uid == 0 {
-		shared, err := cache.getOrLoadShared()
-		if err != nil {
-			return "", err
-		}
-		return shared.lookup(mod, typ), nil
+func (cache *Cache) Remove(mod string) {
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	cache.routers.remove(mod)
+}
+
+func (cache *Cache) Lookup(mod string) (string, error) {
+	cache.mu.RLock()
+	addr, ok := cache.routers.find(mod, time.Now())
+	cache.mu.RUnlock()
+	if ok {
+		return addr, nil
 	}
-	routers, err := cache.getOrLoad(uid)
+	return cache.load(mod, time.Now())
+}
+
+func (cache *Cache) load(mod string, now time.Time) (string, error) {
+	addr, err := cache.discovery.Find(context.Background(), prefix, mod)
 	if err != nil {
 		return "", err
 	}
-	return routers.lookup(mod, typ), nil
-}
-
-func (cache *Cache) load(name string) (*routers, error) {
-	values, err := cache.discovery.ResolveAll(context.Background(), prefix0)
-	if err != nil {
-		return nil, err
-	}
-	var rs = new(routers)
-	for _, v := range values {
-		var r Router
-		if err := r.Unmarshal([]byte(v)); err != nil {
-			return nil, err
-		}
-		rs.routers = append(rs.routers, r)
-	}
-	rs.expires = time.Now().Add(cacheTTL)
-	rs.autofix()
-	return rs, nil
-}
-
-func (cache *Cache) getOrLoadShared() (*routers, error) {
-	cache.mu.RLock()
-	shared := cache.shared
-	cache.mu.RUnlock()
-	if shared == nil || shared.expires.Before(time.Now()) {
-		return shared, nil
-	}
-	routers, err := cache.load(prefix0)
-	if err != nil {
-		return nil, err
-	}
+	expires := now.Add(cacheTTL)
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
-	cache.shared = routers
-	return routers, nil
+	cache.routers.add(mod, addr, expires)
+	return addr, nil
 }
 
-func (cache *Cache) getOrLoad(uid int64) (*routers, error) {
+func (cache *Cache) tryReloadFirst() bool {
+	var (
+		mod     string
+		expires time.Time
+	)
 	cache.mu.RLock()
-	routers, ok := cache.routers[uid]
+	if len(cache.routers.routers) > 0 {
+		mod = cache.routers.routers[0].address
+		expires = cache.routers.routers[0].expires
+	}
 	cache.mu.RUnlock()
-	if ok && routers.expires.Before(time.Now()) {
-		return routers, nil
+	now := time.Now()
+	if expires.Before(now) {
+		return false
 	}
-	routers, err := cache.load(prefix + strconv.FormatInt(uid, 10))
-	if err != nil {
-		return nil, err
-	}
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-	cache.routers[uid] = routers
-	return routers, nil
+	_, err := cache.load(mod, now)
+	return err == nil
 }
