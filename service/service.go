@@ -142,7 +142,7 @@ func exec(app Service) error {
 	signal.Register(os.Interrupt, func(os.Signal) bool {
 		return true
 	})
-	log.Info().Print("service started, Ctrl-C or run command `kill -s INT <pid> to shutdown the service`")
+	log.Info().Print("service started, Ctrl-C or run command 'kill -s INT <pid>' to shutdown the service")
 	signal.Listen()
 	log.Info().Print("service received signal INT")
 	app.SetState(Stopping)
@@ -202,8 +202,9 @@ func NewBaseService(self Service, cfg config.Configurator) *BaseService {
 	return s
 }
 
-func (app *BaseService) AddModule(com module.Module) module.Module {
-	return app.modules.Add(com)
+// AddModule adds a module to service
+func (app *BaseService) AddModule(mod module.Module) module.Module {
+	return app.modules.Add(mod)
 }
 
 // Name implements Service Name method
@@ -267,7 +268,7 @@ func (app *BaseService) register(nx bool) error {
 		return err
 	}
 	id := strconv.FormatInt(app.ID(), 10)
-	err = app.discovery.Register(context.Background(), app.Name(), id, string(data), nx)
+	err = app.discovery.Register(context.Background(), app.Name(), id, string(data), nx, 0)
 	if err != nil {
 		if discovery.IsExist(err) {
 			loaded, err := app.discovery.Find(context.Background(), app.Name(), id)
@@ -305,7 +306,7 @@ func (app *BaseService) register(nx bool) error {
 			if err := app.discovery.Unregister(context.Background(), app.Name(), id); err != nil {
 				return err
 			}
-			return app.discovery.Register(context.Background(), app.Name(), id, string(data), nx)
+			return app.discovery.Register(context.Background(), app.Name(), id, string(data), nx, 0)
 		} else {
 			return err
 		}

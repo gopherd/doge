@@ -96,3 +96,31 @@ func parse(value string, loc *time.Location) (time.Time, error) {
 	}
 	return time.Time{}, ErrUnrecognizedTime
 }
+
+// Timestamp is unix timestamp milliseconds
+type Timestamp int64
+
+// Seconds returns seconds of timestamp
+func (t Timestamp) Seconds() int64 {
+	return int64(t) / 1e3
+}
+
+// Milliseconds returns milliseconds of timestamp
+func (t Timestamp) Milliseconds() int64 {
+	return int64(t)
+}
+
+// Time returns time of timestamp
+func (t Timestamp) Time() time.Time {
+	return time.Unix(t.Seconds(), int64(t)%1e3*1e6)
+}
+
+// String returns string of timestamp
+func (t Timestamp) String() string {
+	return t.Time().Format("2006-01-02T15:04:05.999Z07:00")
+}
+
+// GetTimestamp returns timestamp of t
+func GetTimestamp(t time.Time) Timestamp {
+	return Timestamp(t.UnixNano() / 1e6)
+}

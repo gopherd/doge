@@ -138,14 +138,14 @@ func (cmd *Command) Name() string {
 	return string(cmd.Request.Elements()[0].Value())
 }
 
-// NumArg returns number of arguments
-func (cmd *Command) NumArg() int {
+// NArg returns number of arguments
+func (cmd *Command) NArg() int {
 	return len(cmd.Request.Elements()) - 1
 }
 
 // Arg returns ith argument
-func (cmd *Command) Arg(i int) *Value {
-	return cmd.Request.Elements()[i+1]
+func (cmd *Command) Arg(i int) string {
+	return string(cmd.Request.Elements()[i+1].Value())
 }
 
 // Value of resp

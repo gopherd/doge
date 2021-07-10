@@ -18,6 +18,7 @@ import (
 	"github.com/gopherd/doge/io/pagebuf"
 	"github.com/gopherd/doge/proto"
 	"github.com/gopherd/doge/text/resp"
+	"github.com/gopherd/doge/text/shell"
 	"github.com/gopherd/log"
 )
 
@@ -207,8 +208,17 @@ type SessionEventHandler interface {
 	OnMessage(proto.Type, proto.Body) error // received a message
 }
 
+// Command represents textproto command
+type Command interface {
+	Name() string     // Name of command
+	NArg() int        // Number of arguments
+	Arg(i int) string // Arg returns ith argument
+}
+
+// CommandHandler handles textproto command
 type CommandHandler interface {
-	OnCommand(*resp.Command) error
+	Commands() []string
+	OnCommand(Command) error
 }
 
 // Session wraps network session
@@ -489,10 +499,13 @@ func (s *Session) readCommand() error {
 	}
 	switch s.command.Request.Type {
 	case resp.StringType:
-		values := strings.Split(string(s.command.Request.Value()), " ")
-		s.command.Request.SetArray(len(values))
-		for i := range values {
-			s.command.Request.Append(resp.StringType, []byte(values[i]))
+		args, err := shell.Split(string(s.command.Request.Value()))
+		if err != nil {
+			return err
+		}
+		s.command.Request.SetArray(len(args))
+		for i := range args {
+			s.command.Request.Append(resp.StringType, []byte(args[i]))
 		}
 	case resp.ArrayType:
 	default:
@@ -533,20 +546,19 @@ func (s *Session) handshake(typ proto.Type) error {
 	}
 	name := strings.ToLower(s.command.Name())
 	if name == "command" {
-		// ignore "command" for redis-cli
-		_, err := s.Write([]byte("+ignore\r\n"))
+		// ignore "command" command before handshaking
+		_, err := s.Write([]byte("+ignored\r\n"))
 		return err
 	}
 	if name != hello {
-		println("handshake: " + name)
 		return ErrNotHandshaked
 	}
-	if s.command.NumArg() != 1 {
+	if s.command.NArg() != 1 {
 		return resp.ErrNumberOfArguments
 	}
 
 	var contentType proto.ContentType
-	t, err := strconv.Atoi(string(s.command.Arg(0).Value()))
+	t, err := strconv.Atoi(s.command.Arg(0))
 	if err != nil {
 		return err
 	}

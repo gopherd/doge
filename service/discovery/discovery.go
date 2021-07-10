@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 )
 
 // ErrExist represents an error in case of id already existed.
@@ -18,8 +19,8 @@ func IsExist(err error) bool {
 // Discovery represents a interface for service discovery
 type Discovery interface {
 	// Register registers a service, if nx is true, the id must not exist.
-	// Otherwise, ErrExist returned.
-	Register(ctx context.Context, name, id, content string, nx bool) error
+	// Otherwise, ErrExist returned. If ttl > 0, the service has a expires time.
+	Register(ctx context.Context, name, id, content string, nx bool, ttl time.Duration) error
 	// Unregister unregisters a service
 	Unregister(ctx context.Context, name, id string) error
 	// Find finds service by name and id

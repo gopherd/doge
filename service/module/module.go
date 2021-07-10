@@ -36,30 +36,30 @@ func NewBaseModule(name string) *BaseModule {
 }
 
 // Name implements Module Name method
-func (com *BaseModule) Name() string {
-	return com.name
+func (mod *BaseModule) Name() string {
+	return mod.name
 }
 
 // Init implements Module Init method
-func (com *BaseModule) Init() error {
+func (mod *BaseModule) Init() error {
 	return nil
 }
 
 // Start implements Module Start method
-func (com *BaseModule) Start() {
+func (mod *BaseModule) Start() {
 }
 
 // Shutdown implements Module Shutdown method
-func (com *BaseModule) Shutdown() {
+func (mod *BaseModule) Shutdown() {
 }
 
 // Update implements Module Update method
-func (com *BaseModule) Update(now time.Time, dt time.Duration) {
+func (mod *BaseModule) Update(now time.Time, dt time.Duration) {
 }
 
 // Logger returns the Module logger
-func (com *BaseModule) Logger() log.Prefix {
-	return com.logger
+func (mod *BaseModule) Logger() log.Prefix {
+	return mod.logger
 }
 
 // Manager used to manages a group of modules
@@ -76,20 +76,20 @@ func NewManager() *Manager {
 }
 
 // Add adds a module to the manager
-func (m *Manager) Add(com Module) Module {
-	t := reflect.TypeOf(com).Elem()
-	m.type2modules[t] = append(m.type2modules[t], com)
-	m.modules = append(m.modules, com)
-	return com
+func (m *Manager) Add(mod Module) Module {
+	t := reflect.TypeOf(mod).Elem()
+	m.type2modules[t] = append(m.type2modules[t], mod)
+	m.modules = append(m.modules, mod)
+	return mod
 }
 
 // Find finds the first added module from the manager by type
 func (m *Manager) Find(t reflect.Type) Module {
-	coms, ok := m.type2modules[t]
-	if !ok || len(coms) == 0 {
+	mods, ok := m.type2modules[t]
+	if !ok || len(mods) == 0 {
 		return nil
 	}
-	return coms[0]
+	return mods[0]
 }
 
 // FindAll finds all modules from the manager by type
@@ -109,10 +109,10 @@ func (m *Manager) Get(i int) Module {
 
 // Init initializes all modules
 func (m *Manager) Init() error {
-	for _, com := range m.modules {
-		name := com.Name()
+	for _, mod := range m.modules {
+		name := mod.Name()
 		log.Prefix(name).Info().Print("module initializing")
-		if err := com.Init(); err != nil {
+		if err := mod.Init(); err != nil {
 			log.Prefix(name).Info().Error("error", err).Print("module initialize error")
 			return err
 		}
@@ -123,10 +123,10 @@ func (m *Manager) Init() error {
 
 // Start starts all modules
 func (m *Manager) Start() {
-	for _, com := range m.modules {
-		name := com.Name()
+	for _, mod := range m.modules {
+		name := mod.Name()
 		log.Prefix(name).Info().Print("module starting")
-		com.Start()
+		mod.Start()
 		log.Prefix(name).Info().Print("module started")
 	}
 }
@@ -134,10 +134,10 @@ func (m *Manager) Start() {
 // Shutdown shutdowns all modules in reverse order
 func (m *Manager) Shutdown() {
 	for i := len(m.modules) - 1; i >= 0; i-- {
-		com := m.modules[i]
-		name := com.Name()
+		mod := m.modules[i]
+		name := mod.Name()
 		log.Prefix(name).Info().Print("module shutting down")
-		com.Shutdown()
+		mod.Shutdown()
 		log.Prefix(name).Info().Print("module shutted down")
 	}
 }

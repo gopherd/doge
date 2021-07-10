@@ -8,12 +8,8 @@ import (
 
 const Unused = 0
 
-type Byter interface {
-	Bytes() []byte
-}
-
 func ToBytes(v interface{}) ([]byte, error) {
-	if byter, ok := v.(Byter); ok {
+	if byter, ok := v.(interface{ Bytes() []byte }); ok {
 		return byter.Bytes(), nil
 	}
 	if stringer, ok := v.(fmt.Stringer); ok {
@@ -59,7 +55,7 @@ func ToString(v interface{}) string {
 	if stringer, ok := v.(fmt.Stringer); ok {
 		return stringer.String()
 	}
-	if byter, ok := v.(Byter); ok {
+	if byter, ok := v.(interface{ Bytes() []byte }); ok {
 		return string(byter.Bytes())
 	}
 	switch value := v.(type) {
