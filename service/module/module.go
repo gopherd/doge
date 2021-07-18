@@ -24,14 +24,14 @@ type Module interface {
 // BaseModule implements the Module interface{}
 type BaseModule struct {
 	name   string
-	logger log.Prefix
+	logger *log.ContextLogger
 }
 
 // NewBaseModule creates a BaseModule
 func NewBaseModule(name string) *BaseModule {
 	return &BaseModule{
 		name:   name,
-		logger: log.Prefix(name),
+		logger: log.Prefix(nil, name),
 	}
 }
 
@@ -58,7 +58,7 @@ func (mod *BaseModule) Update(now time.Time, dt time.Duration) {
 }
 
 // Logger returns the Module logger
-func (mod *BaseModule) Logger() log.Prefix {
+func (mod *BaseModule) Logger() *log.ContextLogger {
 	return mod.logger
 }
 
@@ -111,12 +111,12 @@ func (m *Manager) Get(i int) Module {
 func (m *Manager) Init() error {
 	for _, mod := range m.modules {
 		name := mod.Name()
-		log.Prefix(name).Info().Print("module initializing")
+		log.Info().String("module", name).Print("module initializing")
 		if err := mod.Init(); err != nil {
-			log.Prefix(name).Info().Error("error", err).Print("module initialize error")
+			log.Info().String("module", name).Error("error", err).Print("module initialize error")
 			return err
 		}
-		log.Prefix(name).Info().Print("module initialized")
+		log.Info().String("module", name).Print("module initialized")
 	}
 	return nil
 }
@@ -125,9 +125,9 @@ func (m *Manager) Init() error {
 func (m *Manager) Start() {
 	for _, mod := range m.modules {
 		name := mod.Name()
-		log.Prefix(name).Info().Print("module starting")
+		log.Info().String("module", name).Print("module starting")
 		mod.Start()
-		log.Prefix(name).Info().Print("module started")
+		log.Info().String("module", name).Print("module started")
 	}
 }
 
@@ -136,9 +136,9 @@ func (m *Manager) Shutdown() {
 	for i := len(m.modules) - 1; i >= 0; i-- {
 		mod := m.modules[i]
 		name := mod.Name()
-		log.Prefix(name).Info().Print("module shutting down")
+		log.Info().String("module", name).Print("module shutting down")
 		mod.Shutdown()
-		log.Prefix(name).Info().Print("module shutted down")
+		log.Info().String("module", name).Print("module shutted down")
 	}
 }
 

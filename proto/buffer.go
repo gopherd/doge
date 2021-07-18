@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/gopherd/doge/text/resp"
+	"google.golang.org/protobuf/proto"
 )
 
 var bufferp = sync.Pool{
@@ -62,6 +63,15 @@ func (b *Buffer) Reserve(n int) {
 func (b *Buffer) Write(p []byte) (n int, err error) {
 	b.buf = append(b.buf, p...)
 	return len(p), nil
+}
+
+func (b *Buffer) Marshal(m Message) error {
+	options := proto.MarshalOptions{}
+	buf, err := options.MarshalAppend(b.buf, m)
+	if err == nil {
+		b.buf = buf
+	}
+	return err
 }
 
 func (b *Buffer) Unmarshal(m Message) error {

@@ -21,7 +21,8 @@ func PingHandler(w http.ResponseWriter, r *http.Request) {
 
 type Config struct {
 	Address           string `json:"address"`
-	HTML              string `json:"html"`
+	StaticDir         string `json:"static_dir"`
+	StaticPath        string `json:"static_path"`
 	ConnTimeout       int64  `json:"conn_timeout"`
 	ReadHeaderTimeout int64  `json:"read_header_timeout"`
 	ReadTimeout       int64  `json:"read_timeout"`
@@ -29,7 +30,7 @@ type Config struct {
 	MaxConns          int    `json:"max_conns"`
 }
 
-func (cfg *Config) fix() {
+func (cfg *Config) autofix() {
 	if cfg.ConnTimeout <= 0 {
 		cfg.ConnTimeout = 60 // 1 分钟
 	}
@@ -57,7 +58,7 @@ type HTTPServer struct {
 }
 
 func NewHTTPServer(cfg Config) *HTTPServer {
-	cfg.fix()
+	cfg.autofix()
 	httpd := &HTTPServer{
 		cfg: cfg,
 	}
@@ -122,7 +123,6 @@ func (httpd *HTTPServer) Handle(pattern string, handler http.Handler, middleware
 	httpd.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt64(&httpd.numHandling, 1)
 		defer atomic.AddInt64(&httpd.numHandling, -1)
-		log.Printf(log.LevelDebug, "%s - %s %s %q %q", IP(r), r.Proto, r.Method, r.URL.Path, r.UserAgent())
 		w.Header().Add("Connection", "Keep-alive")
 		w.Header().Add("Access-Control-Allow-Origin", "*")
 		w.Header().Add("Keep-alive", "30")
@@ -131,12 +131,5 @@ func (httpd *HTTPServer) Handle(pattern string, handler http.Handler, middleware
 }
 
 func (httpd *HTTPServer) JSONResponse(w http.ResponseWriter, r *http.Request, data interface{}, options ...ResponseOptions) {
-	if data != nil {
-		if e, ok := data.(error); ok {
-			log.Log(2, log.LevelInfo, "http", "%s - %s %s %q response an application error: %e", IP(r), r.Proto, r.Method, r.URL.Path, e.Error())
-		} else {
-			log.Log(2, log.LevelTrace, "http", "%s - %s %s %q response json", IP(r), r.Proto, r.Method, r.URL.Path)
-		}
-	}
 	JSONResponse(w, data, options...)
 }

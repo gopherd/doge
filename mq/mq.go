@@ -33,7 +33,8 @@ type Conn interface {
 	Ping(topic string) error
 	// Subscribe subscribes topic with consumer
 	Subscribe(topic string, consumer Consumer) error
-	// Publish publishs message content to topic
+	// Publish publishs message content to topic.
+	// content allowed to be modified after Publish called.
 	Publish(topic string, content []byte) error
 }
 

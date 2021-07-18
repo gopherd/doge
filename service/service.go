@@ -373,10 +373,6 @@ func (app *BaseService) Init() error {
 	if !ok {
 		level = log.LevelInfo
 	}
-	prefix := core.Log.Prefix
-	if prefix == "" {
-		prefix = build.Name()
-	}
 	var (
 		options []log.Option
 		writers []log.Writer
@@ -394,7 +390,6 @@ func (app *BaseService) Init() error {
 		options = append(options, log.WithWriters(writers...))
 	}
 	options = append(options, log.WithLevel(level))
-	options = append(options, log.WithPrefix(prefix))
 	options = append(options, log.WithFlags(core.Log.FixedFlags()))
 	log.Start(options...)
 	log.Info().
