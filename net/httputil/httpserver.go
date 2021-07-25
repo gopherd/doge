@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gopherd/log"
 	xnetutil "golang.org/x/net/netutil"
 
 	"github.com/gopherd/doge/net/netutil"
@@ -76,39 +75,41 @@ func (httpd *HTTPServer) NumHandling() int64 {
 	return atomic.LoadInt64(&httpd.numHandling)
 }
 
-func (httpd *HTTPServer) ListenAndServe(async bool) error {
+func (httpd *HTTPServer) Addr() string {
+	return httpd.server.Addr
+}
+
+func (httpd *HTTPServer) Listen() (net.Listener, error) {
 	addr := httpd.server.Addr
 	if addr == "" {
 		addr = ":http"
 	}
-	ln, err := net.Listen("tcp", addr)
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	if httpd.cfg.ConnTimeout > 0 {
+		l = netutil.NewTCPKeepAliveListener(l.(*net.TCPListener), time.Duration(httpd.cfg.ConnTimeout)*time.Second)
+	}
+	if httpd.cfg.MaxConns <= 0 {
+		return l, nil
+	}
+	return xnetutil.LimitListener(l, httpd.cfg.MaxConns), nil
+}
+
+func (httpd *HTTPServer) Serve(l net.Listener) error {
+	return httpd.server.Serve(l)
+}
+
+func (httpd *HTTPServer) ListenAndServe() error {
+	l, err := httpd.Listen()
 	if err != nil {
 		return err
 	}
-	l := netutil.NewTCPKeepAliveListener(ln.(*net.TCPListener), time.Duration(httpd.cfg.ConnTimeout)*time.Second)
-	l2 := xnetutil.LimitListener(l, httpd.cfg.MaxConns)
-	if async {
-		go func() {
-			if err := httpd.server.Serve(l2); err != nil {
-				if err == http.ErrServerClosed {
-					log.Info().Print("http server closed")
-				} else {
-					log.Error().Error("error", err).Print("http server")
-				}
-			}
-		}()
-		return nil
-	} else {
-		return httpd.server.Serve(l2)
-	}
+	return httpd.Serve(l)
 }
 
 func (httpd *HTTPServer) Shutdown(ctx context.Context) error {
-	if ctx == nil {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(context.Background(), time.Second*10)
-		defer cancel()
-	}
 	return httpd.server.Shutdown(ctx)
 }
 
@@ -130,6 +131,6 @@ func (httpd *HTTPServer) Handle(pattern string, handler http.Handler, middleware
 	})
 }
 
-func (httpd *HTTPServer) JSONResponse(w http.ResponseWriter, r *http.Request, data interface{}, options ...ResponseOptions) {
-	JSONResponse(w, data, options...)
+func (httpd *HTTPServer) JSONResponse(w http.ResponseWriter, r *http.Request, data interface{}, options ...ResponseOptions) error {
+	return JSONResponse(w, data, options...)
 }

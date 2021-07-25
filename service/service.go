@@ -424,14 +424,16 @@ func (app *BaseService) Init() error {
 }
 
 // Start implements Service Start method
-func (app *BaseService) Start() {
+func (app *BaseService) Start() error {
 	app.modules.Start()
+	return nil
 }
 
 // Shutdown implements Service Shutdown method
-func (app *BaseService) Shutdown() {
+func (app *BaseService) Shutdown() error {
 	app.modules.Shutdown()
 	app.unregister()
+	return nil
 }
 
 // Update updates per frame

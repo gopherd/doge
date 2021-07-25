@@ -1,8 +1,8 @@
 package erron
 
 import (
+	"encoding/json"
 	"errors"
-	"strconv"
 )
 
 const (
@@ -12,47 +12,86 @@ const (
 	// User-defined errno should be greater than zero
 )
 
+var errOK = errors.New("ok")
+
 type errno struct {
 	code int
 	err  error
 }
 
-func (err *errno) Errno() int {
+func (err errno) Errno() int {
 	return err.code
 }
 
-func (err *errno) Error() string {
-	return "(" + strconv.Itoa(err.code) + ") " + err.err.Error()
+func (err errno) Error() string {
+	return err.err.Error()
 }
 
-func (err *errno) Unwrap() error {
+func (err errno) Unwrap() error {
 	return err.err
 }
 
-// WithErrno wraps the error with code
-func WithErrno(code int, err error) error {
+func (err errno) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Error       int    `json:"error"`
+		Description string `json:"description,omitempty"`
+	}{
+		Error:       err.code,
+		Description: err.err.Error(),
+	})
+}
+
+func AsErrno(err error) error {
+	if err == nil {
+		return errno{
+			code: EOK,
+			err:  errOK,
+		}
+	}
+	for {
+		if e, ok := err.(errno); ok {
+			return e
+		}
+		if e, ok := err.(interface{ Errno() int }); ok {
+			return errno{
+				code: e.Errno(),
+				err:  err,
+			}
+		}
+		if err = errors.Unwrap(err); err == nil {
+			break
+		}
+	}
+	return errno{
+		code: EUnknown,
+		err:  err,
+	}
+}
+
+// Errno wraps the error with code
+func Errno(code int, err error) error {
 	if err == nil {
 		return nil
 	}
-	return &errno{
+	return errno{
 		code: code,
 		err:  err,
 	}
 }
 
-// WithErrnof returns an error that formats as the given text with code.
-func WithErrnof(code int, format string, args ...interface{}) error {
-	return &errno{
+// Errnof returns an error that formats as the given text with code.
+func Errnof(code int, format string, args ...interface{}) error {
+	return errno{
 		code: code,
 		err:  New(format, args...),
 	}
 }
 
-// Errno finds the first error in err's chain that contains errno.
+// GetErrno finds the first error in err's chain that contains errno.
 //
 // The chain consists of err itself followed by the sequence of errors obtained by
 // repeatedly calling Unwrap.
-func Errno(err error) int {
+func GetErrno(err error) int {
 	if err == nil {
 		return EOK
 	}
