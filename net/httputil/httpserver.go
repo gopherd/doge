@@ -7,8 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	xnetutil "golang.org/x/net/netutil"
-
 	"github.com/gopherd/doge/net/netutil"
 )
 
@@ -19,31 +17,32 @@ func PingHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type Config struct {
-	Address           string `json:"address"`
-	StaticDir         string `json:"static_dir"`
-	StaticPath        string `json:"static_path"`
-	ConnTimeout       int64  `json:"conn_timeout"`
-	ReadHeaderTimeout int64  `json:"read_header_timeout"`
-	ReadTimeout       int64  `json:"read_timeout"`
-	WriteTimeout      int64  `json:"write_timeout"`
-	MaxConns          int    `json:"max_conns"`
+	Address           string            `json:"address"`
+	StaticDir         string            `json:"static_dir"`
+	StaticPath        string            `json:"static_path"`
+	ConnTimeout       time.Duration     `json:"conn_timeout"`
+	ReadHeaderTimeout time.Duration     `json:"read_header_timeout"`
+	ReadTimeout       time.Duration     `json:"read_timeout"`
+	WriteTimeout      time.Duration     `json:"write_timeout"`
+	MaxConns          int               `json:"max_conns"`
+	Headers           map[string]string `json:"headers"`
 }
 
 func (cfg *Config) autofix() {
 	if cfg.ConnTimeout <= 0 {
-		cfg.ConnTimeout = 60 // 1 分钟
+		cfg.ConnTimeout = 60 * time.Second
 	}
 	if cfg.ReadHeaderTimeout <= 0 {
-		cfg.ReadHeaderTimeout = 30
+		cfg.ReadHeaderTimeout = 30 * time.Second
 	}
 	if cfg.ReadTimeout <= 0 {
-		cfg.ReadTimeout = 30
+		cfg.ReadTimeout = 30 * time.Second
 	}
 	if cfg.WriteTimeout <= 0 {
-		cfg.WriteTimeout = 30
+		cfg.WriteTimeout = 30 * time.Second
 	}
 	if cfg.MaxConns <= 0 {
-		cfg.MaxConns = 4096
+		cfg.MaxConns = 1 << 15
 	}
 }
 
@@ -64,9 +63,9 @@ func NewHTTPServer(cfg Config) *HTTPServer {
 	httpd.server = &http.Server{
 		Addr:              httpd.cfg.Address,
 		Handler:           &httpd.mux,
-		ReadHeaderTimeout: time.Duration(httpd.cfg.ReadHeaderTimeout) * time.Second,
-		ReadTimeout:       time.Duration(httpd.cfg.ReadTimeout) * time.Second,
-		WriteTimeout:      time.Duration(httpd.cfg.WriteTimeout) * time.Second,
+		ReadHeaderTimeout: httpd.cfg.ReadHeaderTimeout,
+		ReadTimeout:       httpd.cfg.ReadTimeout,
+		WriteTimeout:      httpd.cfg.WriteTimeout,
 	}
 	return httpd
 }
@@ -89,12 +88,12 @@ func (httpd *HTTPServer) Listen() (net.Listener, error) {
 		return nil, err
 	}
 	if httpd.cfg.ConnTimeout > 0 {
-		l = netutil.NewTCPKeepAliveListener(l.(*net.TCPListener), time.Duration(httpd.cfg.ConnTimeout)*time.Second)
+		l = netutil.NewTCPKeepAliveListener(l.(*net.TCPListener), httpd.cfg.ConnTimeout)
 	}
 	if httpd.cfg.MaxConns <= 0 {
 		return l, nil
 	}
-	return xnetutil.LimitListener(l, httpd.cfg.MaxConns), nil
+	return LimitListener(l, httpd.cfg.MaxConns), nil
 }
 
 func (httpd *HTTPServer) Serve(l net.Listener) error {
@@ -124,9 +123,11 @@ func (httpd *HTTPServer) Handle(pattern string, handler http.Handler, middleware
 	httpd.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt64(&httpd.numHandling, 1)
 		defer atomic.AddInt64(&httpd.numHandling, -1)
-		w.Header().Add("Connection", "Keep-alive")
-		w.Header().Add("Access-Control-Allow-Origin", "*")
-		w.Header().Add("Keep-alive", "30")
+		if httpd.cfg.Headers != nil {
+			for k, v := range httpd.cfg.Headers {
+				w.Header().Add(k, v)
+			}
+		}
 		handler.ServeHTTP(w, r)
 	})
 }

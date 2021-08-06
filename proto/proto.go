@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -82,10 +80,17 @@ func Text(b []byte) Body {
 
 // Message represents a message interface
 type Message interface {
-	proto.Message
+	// Type of message
+	Typeof() Type
+	// Size of message
+	Sizeof() int
+	// Name of message
+	Nameof() string
 
-	// Type returns the message type
-	Type() Type
+	// MarshalAppend marshals message to buf
+	MarshalAppend(buf []byte, useCachedSize bool) ([]byte, error)
+	// Unmarshal unmarshals message from buf
+	Unmarshal(buf []byte) error
 }
 
 var (
@@ -133,16 +138,6 @@ func New(typ Type) Message {
 // Lookup lookups all registered types by module
 func Lookup(module string) []Type {
 	return mods[module]
-}
-
-// Sizeof calculates the exact size of marshaled bytes
-func Sizeof(m Message) int {
-	return proto.Size(m)
-}
-
-// Nameof returns the name of message
-func Nameof(m Message) string {
-	return string(proto.MessageName(m))
 }
 
 // Moduleof returns the module name of message by type
@@ -264,12 +259,12 @@ func Encode(m Message, reservedHeadLen int) ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	size := Sizeof(m)
+	size := m.Sizeof()
 	if size > MaxSize {
 		return nil, ErrSizeOverflow
 	}
 	off := reservedHeadLen
-	tsize := sizeofUvarint(uint64(m.Type()))
+	tsize := sizeofUvarint(uint64(m.Typeof()))
 	ssize := sizeofUvarint(uint64(size))
 	buf := make([]byte, off+tsize+ssize+size)
 	_, err := encodeAppend(buf[off:], m, size)
@@ -281,12 +276,12 @@ func EncodeAppend(buf []byte, m Message) ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	size := Sizeof(m)
+	size := m.Sizeof()
 	if size > MaxSize {
 		return nil, ErrSizeOverflow
 	}
 	off := len(buf)
-	tsize := sizeofUvarint(uint64(m.Type()))
+	tsize := sizeofUvarint(uint64(m.Typeof()))
 	ssize := sizeofUvarint(uint64(size))
 	n := tsize + ssize + size
 	if cap(buf)-off < n {
@@ -301,18 +296,15 @@ func EncodeAppend(buf []byte, m Message) ([]byte, error) {
 
 func encodeAppend(buf []byte, m Message, size int) ([]byte, error) {
 	off := 0
-	off += binary.PutUvarint(buf[off:], uint64(m.Type()))
+	off += binary.PutUvarint(buf[off:], uint64(m.Typeof()))
 	off += binary.PutUvarint(buf[off:], uint64(size))
-	options := proto.MarshalOptions{
-		UseCachedSize: true,
-	}
-	_, err := options.MarshalAppend(buf[off:off], m)
+	_, err := m.MarshalAppend(buf[off:off], true)
 	return buf, err
 }
 
 // Marshal returns the wire-format encoding of m without type or size.
 func Marshal(m Message) ([]byte, error) {
-	return proto.Marshal(m)
+	return m.MarshalAppend(nil, false)
 }
 
 // Decode decodes one message with type and size from buf and
@@ -357,6 +349,6 @@ func Decode(buf []byte) (int, Message, error) {
 
 // Unmarshal parses the wire-format message in b and places the result in m.
 // The provided message must be mutable (e.g., a non-nil pointer to a message).
-func Unmarshal(b []byte, m Message) error {
-	return proto.Unmarshal(b, m)
+func Unmarshal(buf []byte, m Message) error {
+	return m.Unmarshal(buf)
 }

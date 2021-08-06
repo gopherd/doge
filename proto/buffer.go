@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/gopherd/doge/text/resp"
-	"google.golang.org/protobuf/proto"
 )
 
 var bufferp = sync.Pool{
@@ -66,8 +65,7 @@ func (b *Buffer) Write(p []byte) (n int, err error) {
 }
 
 func (b *Buffer) Marshal(m Message) error {
-	options := proto.MarshalOptions{}
-	buf, err := options.MarshalAppend(b.buf, m)
+	buf, err := m.MarshalAppend(b.buf, false)
 	if err == nil {
 		b.buf = buf
 	}
@@ -84,7 +82,7 @@ func (b *Buffer) Encode(m Message, contentType ContentType) error {
 	switch contentType {
 	case ContentTypeText:
 		b.buf = append(b.buf, resp.StringType.Byte())
-		b.buf = strconv.AppendInt(b.buf, int64(m.Type()), 10)
+		b.buf = strconv.AppendInt(b.buf, int64(m.Typeof()), 10)
 		b.buf = append(b.buf, ' ')
 		err = json.NewEncoder(b).Encode(m)
 		if err == nil {

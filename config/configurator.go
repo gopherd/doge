@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -115,10 +116,14 @@ func IsExitError(err error) (code int, ok bool) {
 	if err == nil {
 		return 0, false
 	}
-	if e, ok := err.(exitError); ok {
-		return e.code, ok
+	for {
+		if e, ok := err.(exitError); ok {
+			return e.code, ok
+		}
+		if err = errors.Unwrap(err); err == nil {
+			return 0, false
+		}
 	}
-	return 0, false
 }
 
 func Read(cfg Configurator, optional bool) error {
