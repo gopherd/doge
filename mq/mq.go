@@ -7,7 +7,7 @@ import (
 	"github.com/gopherd/doge/service/discovery"
 )
 
-// Consumer used consume received messages from mq.
+// Consumer used to consume received messages from mq.
 type Consumer interface {
 	// Setup would be called before consumption loop
 	Setup() error
@@ -62,7 +62,7 @@ func Register(name string, driver Driver) {
 	drivers[name] = driver
 }
 
-// Open opens a mq specified by its driver name and
+// Open opens a mq connection specified by its driver name and
 // a driver-specific source.
 func Open(name, source string, discovery discovery.Discovery) (Conn, error) {
 	driversMu.RLock()
