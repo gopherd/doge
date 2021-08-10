@@ -93,10 +93,17 @@ type Message interface {
 	Unmarshal(buf []byte) error
 }
 
+type MessageInfo struct {
+	Type   Type
+	Name   string
+	Module string
+}
+
 var (
 	creators  = make(map[Type]func() Message)
 	mods      = make(map[string][]Type)
 	type2mods = make(map[Type]string)
+	messages  []MessageInfo
 )
 
 // Register registers a message creator by type. Register is not
@@ -125,6 +132,16 @@ func Register(mod string, typ Type, creator func() Message) {
 	creators[typ] = creator
 	mods[mod] = append(mods[mod], typ)
 	type2mods[typ] = mod
+	messages = append(messages, MessageInfo{
+		Type:   typ,
+		Name:   creator().Nameof(),
+		Module: mod,
+	})
+}
+
+// Messages returns all registered message informations
+func Messages() []MessageInfo {
+	return messages
 }
 
 // New creates a message by type, nil returned if type not found
