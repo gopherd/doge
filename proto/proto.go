@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"sync"
 )
 
 const (
@@ -150,6 +151,60 @@ func New(typ Type) Message {
 		return creator()
 	}
 	return nil
+}
+
+// Arena manages reusable message objects
+type Arena struct {
+	mu    sync.RWMutex
+	pools map[Type]*sync.Pool
+}
+
+func (arena *Arena) getp(typ Type) *sync.Pool {
+	if p := arena.findp(typ); p != nil {
+		return p
+	}
+	f, ok := creators[typ]
+	if !ok {
+		return nil
+	}
+	arena.mu.Lock()
+	defer arena.mu.Unlock()
+	if arena.pools == nil {
+		arena.pools = make(map[Type]*sync.Pool)
+	}
+	if p, ok := arena.pools[typ]; ok {
+		return p
+	}
+	p := &sync.Pool{New: func() interface{} { return f() }}
+	arena.pools[typ] = p
+	return p
+}
+
+func (arena *Arena) findp(typ Type) *sync.Pool {
+	arena.mu.RLock()
+	defer arena.mu.RUnlock()
+	if arena.pools == nil {
+		return nil
+	}
+	return arena.pools[typ]
+}
+
+// Get selects an message object from the Pool by type, removes it from the
+// Pool, and returns it to the caller.
+func (arena *Arena) Get(typ Type) (*sync.Pool, Message) {
+	p := arena.getp(typ)
+	if p == nil {
+		return nil, nil
+	}
+	if x := p.Get(); x == nil {
+		println("proto: get a nil message from pool")
+		return nil, nil
+	} else if m, ok := x.(Message); !ok {
+		println("proto: get an unexpected message type from pool")
+		return nil, nil
+	} else {
+		return p, m
+	}
 }
 
 // Lookup lookups all registered types by module
