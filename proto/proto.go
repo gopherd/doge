@@ -5,10 +5,19 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"expvar"
 	"fmt"
 	"io"
 	"strconv"
 )
+
+func init() {
+	const name = "github.com/gopherd/proto.init"
+	if expvar.Get(name) != nil {
+		panic(name + " called twice! Did you import two or more different versions of github.com/gopherd/proto packages?")
+	}
+	expvar.Publish(name, expvar.NewString("initialized"))
+}
 
 const (
 	// max size of content: 1G
