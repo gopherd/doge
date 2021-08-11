@@ -5,12 +5,7 @@ import (
 	"sync"
 
 	"github.com/gopherd/doge/service/discovery"
-	"github.com/gopherd/doge/version"
 )
-
-func init() {
-	version.NoDuplicate("github.com/gopherd/doge/mq")
-}
 
 // Consumer used to consume received messages from mq.
 type Consumer interface {

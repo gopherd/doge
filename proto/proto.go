@@ -9,13 +9,7 @@ import (
 	"io"
 	"strconv"
 	"sync"
-
-	"github.com/gopherd/doge/version"
 )
-
-func init() {
-	version.NoDuplicate("github.com/gopherd/doge/proto")
-}
 
 const (
 	// max size of content: 1G
