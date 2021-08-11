@@ -23,9 +23,16 @@ var (
 	ErrSizeOverflow           = errors.New("proto: size overflow")
 	ErrTypeOverflow           = errors.New("proto: type overflow")
 	ErrOutOfRange             = errors.New("proto: out of range")
-	ErrUnrecognizedType       = errors.New("proto: unrecognized message type")
 	ErrUnsupportedContentType = errors.New("proto: unsupported content type")
 )
+
+type UnrecognizedTypeError struct {
+	Type Type
+}
+
+func (err *UnrecognizedTypeError) Error() string {
+	return "proto: unrecognized message type " + strconv.FormatUint(uint64(err.Type), 10)
+}
 
 // ContentType represents encoding type of content
 type ContentType int
@@ -153,57 +160,79 @@ func New(typ Type) Message {
 	return nil
 }
 
-// Arena manages reusable message objects
-type Arena struct {
+// Arena is a message factory
+type Arena interface {
+	Get(typ Type) Message
+	Put(m Message)
+}
+
+// ArenaFunc wraps function as an Arena
+type ArenaFunc func(Type) Message
+
+// New implements Arena New method
+func (fn ArenaFunc) Get(typ Type) Message { return fn(typ) }
+func (fn ArenaFunc) Put(_ Message)        {}
+
+// Pool implements Arena interface to reuse message objects
+type Pool struct {
 	mu    sync.RWMutex
 	pools map[Type]*sync.Pool
 }
 
-func (arena *Arena) getp(typ Type) *sync.Pool {
-	if p := arena.findp(typ); p != nil {
+func (pp *Pool) getp(typ Type) *sync.Pool {
+	if p := pp.findp(typ); p != nil {
 		return p
 	}
 	f, ok := creators[typ]
 	if !ok {
 		return nil
 	}
-	arena.mu.Lock()
-	defer arena.mu.Unlock()
-	if arena.pools == nil {
-		arena.pools = make(map[Type]*sync.Pool)
+	pp.mu.Lock()
+	defer pp.mu.Unlock()
+	if pp.pools == nil {
+		pp.pools = make(map[Type]*sync.Pool)
 	}
-	if p, ok := arena.pools[typ]; ok {
+	if p, ok := pp.pools[typ]; ok {
 		return p
 	}
 	p := &sync.Pool{New: func() interface{} { return f() }}
-	arena.pools[typ] = p
+	pp.pools[typ] = p
 	return p
 }
 
-func (arena *Arena) findp(typ Type) *sync.Pool {
-	arena.mu.RLock()
-	defer arena.mu.RUnlock()
-	if arena.pools == nil {
+func (pp *Pool) findp(typ Type) *sync.Pool {
+	pp.mu.RLock()
+	defer pp.mu.RUnlock()
+	if pp.pools == nil {
 		return nil
 	}
-	return arena.pools[typ]
+	return pp.pools[typ]
 }
 
 // Get selects an message object from the Pool by type, removes it from the
 // Pool, and returns it to the caller.
-func (arena *Arena) Get(typ Type) (*sync.Pool, Message) {
-	p := arena.getp(typ)
+func (pp *Pool) Get(typ Type) Message {
+	p := pp.getp(typ)
 	if p == nil {
-		return nil, nil
+		return nil
 	}
 	if x := p.Get(); x == nil {
 		println("proto: get a nil message from pool")
-		return nil, nil
+		return nil
 	} else if m, ok := x.(Message); !ok {
 		println("proto: get an unexpected message type from pool")
-		return nil, nil
+		return nil
 	} else {
-		return p, m
+		return m
+	}
+}
+
+// Put adds x to the pool.
+func (pp *Pool) Put(m Message) {
+	if m != nil {
+		if p := pp.findp(m.Typeof()); p != nil {
+			p.Put(m)
+		}
 	}
 }
 
@@ -381,7 +410,7 @@ func Marshal(m Message) ([]byte, error) {
 
 // Decode decodes one message with type and size from buf and
 // returns number of bytes read and unmarshaled message.
-func Decode(buf []byte) (int, Message, error) {
+func Decode(buf []byte, arena Arena) (int, Message, error) {
 	off := 0
 	// decode type
 	typ, n := binary.Uvarint(buf[off:])
@@ -394,9 +423,14 @@ func Decode(buf []byte) (int, Message, error) {
 	if typ > MaxType {
 		return off, nil, ErrTypeOverflow
 	}
-	m := New(Type(typ))
+	var m Message
+	if arena == nil {
+		m = New(Type(typ))
+	} else {
+		m = arena.Get(Type(typ))
+	}
 	if m == nil {
-		return off, nil, ErrUnrecognizedType
+		return off, nil, &UnrecognizedTypeError{Type: Type(typ)}
 	}
 	// decode size
 	size, n := binary.Uvarint(buf[off:])
