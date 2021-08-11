@@ -30,7 +30,7 @@ type UnrecognizedTypeError struct {
 	Type Type
 }
 
-func ErrUnrecogizedType(typ Type) error {
+func ErrUnrecognizedType(typ Type) error {
 	return &UnrecognizedTypeError{Type: typ}
 }
 
