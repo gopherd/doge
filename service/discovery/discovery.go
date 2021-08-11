@@ -6,7 +6,13 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/gopherd/doge/version"
 )
+
+func init() {
+	version.NoDuplicate("github.com/gopherd/doge/service/discovery")
+}
 
 // ErrExist represents an error in case of id already existed.
 var ErrExist = errors.New("discovery: id exist")

@@ -3,7 +3,13 @@ package sms
 import (
 	"fmt"
 	"sync"
+
+	"github.com/gopherd/doge/version"
 )
+
+func init() {
+	version.NoDuplicate("github.com/gopherd/doge/sms")
+}
 
 type Provider interface {
 	SendCode(phoneNumber, code string) error
