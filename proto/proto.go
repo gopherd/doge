@@ -30,6 +30,10 @@ type UnrecognizedTypeError struct {
 	Type Type
 }
 
+func ErrUnrecogizedType(typ Type) error {
+	return &UnrecognizedTypeError{Type: typ}
+}
+
 func (err *UnrecognizedTypeError) Error() string {
 	return "proto: unrecognized message type " + strconv.FormatUint(uint64(err.Type), 10)
 }
@@ -160,7 +164,7 @@ func New(typ Type) Message {
 	return nil
 }
 
-// Arena is a message factory
+// Arena represents a message factory
 type Arena interface {
 	Get(typ Type) Message
 	Put(m Message)
@@ -169,9 +173,11 @@ type Arena interface {
 // ArenaFunc wraps function as an Arena
 type ArenaFunc func(Type) Message
 
-// New implements Arena New method
+// Get implements Arena Get method
 func (fn ArenaFunc) Get(typ Type) Message { return fn(typ) }
-func (fn ArenaFunc) Put(_ Message)        {}
+
+// Put implements Arena Put method
+func (fn ArenaFunc) Put(_ Message) {}
 
 // Pool implements Arena interface to reuse message objects
 type Pool struct {
