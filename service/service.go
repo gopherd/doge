@@ -109,21 +109,17 @@ func Since() time.Duration {
 // Run runs the service
 func Run(app Service) {
 	if err := exec(app); err != nil {
-		code, ok := config.IsExitError(err)
-		if !ok {
-			code = 1
-		}
+		code, _ := config.IsExitError(err)
 		if code != 0 {
-			println(err.Error())
+			os.Exit(code)
 		}
-		os.Exit(code)
 	}
 }
 
 func exec(app Service) error {
 	defer log.Shutdown()
-
 	if err := app.Init(); err != nil {
+		log.Info().Error("error", err).Print("app init error")
 		return err
 	}
 	log.Info().Print("starting service")

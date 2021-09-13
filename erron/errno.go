@@ -48,6 +48,7 @@ func AsErrno(err error) error {
 			err:  errOK,
 		}
 	}
+	var origin = err
 	for {
 		if e, ok := err.(errno); ok {
 			return e
@@ -55,7 +56,7 @@ func AsErrno(err error) error {
 		if e, ok := err.(interface{ Errno() int }); ok {
 			return errno{
 				code: e.Errno(),
-				err:  err,
+				err:  origin,
 			}
 		}
 		if err = errors.Unwrap(err); err == nil {
@@ -64,7 +65,7 @@ func AsErrno(err error) error {
 	}
 	return errno{
 		code: EUnknown,
-		err:  err,
+		err:  origin,
 	}
 }
 
