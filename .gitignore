@@ -6,6 +6,7 @@
 .vscode/
 .idea/
 *.exe
+testdata/
 
 /cmd/gated/gated
 /cmd/gated/gated.json
