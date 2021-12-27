@@ -3,6 +3,7 @@ package rbtree_test
 import (
 	"fmt"
 	"math/rand"
+	"strconv"
 	"testing"
 
 	"github.com/gopherd/doge/container"
@@ -10,7 +11,7 @@ import (
 )
 
 func ExampleRBTree() {
-	tree := New(func(k1, k2 K) bool { return k1 > k2 })
+	tree := New[int, int](Greater[int])
 	fmt.Print("empty:\n" + tree.Format(container.TreeFormatter{}))
 
 	tree.Insert(1, 2)
@@ -26,6 +27,7 @@ func ExampleRBTree() {
 		IconLastBranch: "+--",
 	}))
 	fmt.Println("plain:\n" + tree.String())
+
 	// Output:
 	// empty:
 	// <nil>
@@ -41,35 +43,22 @@ func ExampleRBTree() {
 	// ... +-- 1:2
 	// plain:
 	// [8:16 4:8 2:4 1:2]
-
-	tree.Remove(1)
-	iter := tree.First()
-	for iter != nil {
-		if iter.Key() > 2 {
-			iter.SetValue(iter.Value() * 2)
-		}
-		iter = iter.Next()
-	}
-	// now: [8:32 4:16 2:4]
 }
 
 func TestRBTree(t *testing.T) {
-	tree := New(func(k1, k2 K) bool { return k1 > k2 })
-	hashmap := make(map[K]V)
+	tree := New[int, string](func(k1, k2 int) bool { return k1 > k2 })
+	hashmap := make(map[int]string)
 
 	rand.Seed(100)
 
-	//template<K>
-	makeKey := func(i int) K {
-		//return strconv.Itoa(i)
+	makeKey := func(i int) int {
 		return i
 	}
-	//template<V>
-	makeValue := func(i int) V {
-		return i
+	makeValue := func(i int) string {
+		return strconv.Itoa(i)
 	}
 
-	add := func(k K, v V) {
+	add := func(k int, v string) {
 		_, found := hashmap[k]
 		hashmap[k] = v
 		_, ok := tree.Insert(k, v)
@@ -79,7 +68,7 @@ func TestRBTree(t *testing.T) {
 	}
 	_ = add
 
-	remove := func(k K) {
+	remove := func(k int) {
 		_, found := hashmap[k]
 		delete(hashmap, k)
 		ok := tree.Remove(k)
@@ -125,7 +114,7 @@ func TestRBTree(t *testing.T) {
 	}
 }
 
-func checkTree(op string, t *testing.T, tree *RBTree, hashmap map[K]V) {
+func checkTree[K comparable, V comparable](op string, t *testing.T, tree *RBTree[K, V], hashmap map[K]V) {
 	if tree.Len() != len(hashmap) {
 		t.Fatalf("[%s] len mismacthed: want %d, got %d", op, len(hashmap), tree.Len())
 	}
