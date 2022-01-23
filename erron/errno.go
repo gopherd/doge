@@ -81,7 +81,7 @@ func Errno(code int, err error) error {
 }
 
 // Errnof returns an error that formats as the given text with code.
-func Errnof(code int, format string, args ...interface{}) error {
+func Errnof(code int, format string, args ...any) error {
 	return errno{
 		code: code,
 		err:  New(format, args...),

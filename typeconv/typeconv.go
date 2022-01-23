@@ -8,7 +8,7 @@ import (
 
 const Unused = 0
 
-func ToBytes(v interface{}) ([]byte, error) {
+func ToBytes(v any) ([]byte, error) {
 	if byter, ok := v.(interface{ Bytes() []byte }); ok {
 		return byter.Bytes(), nil
 	}
@@ -51,7 +51,7 @@ func ToBytes(v interface{}) ([]byte, error) {
 	return b, nil
 }
 
-func ToString(v interface{}) string {
+func ToString(v any) string {
 	if stringer, ok := v.(fmt.Stringer); ok {
 		return stringer.String()
 	}
@@ -200,6 +200,6 @@ func String2Float64(v *float64, s string) error {
 	return err
 }
 
-func String2Object(obj interface{}, s string) error {
+func String2Object(obj any, s string) error {
 	return json.Unmarshal([]byte(s), obj)
 }

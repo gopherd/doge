@@ -375,7 +375,7 @@ func RequiredString(q Query, key string) (string, error) {
 	}
 }
 
-func JSON(q Query, key string, ptr interface{}) error {
+func JSON(q Query, key string, ptr any) error {
 	if value, _ := getArgument(q, key, false); value == "" {
 		return nil
 	} else {

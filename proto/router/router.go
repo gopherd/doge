@@ -46,12 +46,12 @@ func (rs routers) Swap(i, j int) {
 	rs.indices[rs.routers[i].address] = i
 	rs.indices[rs.routers[j].address] = j
 }
-func (rs *routers) Push(x interface{}) {
+func (rs *routers) Push(x any) {
 	r := x.(router)
 	rs.indices[r.address] = len(rs.routers)
 	rs.routers = append(rs.routers, r)
 }
-func (rs *routers) Pop() interface{} {
+func (rs *routers) Pop() any {
 	end := len(rs.routers) - 1
 	last := rs.routers[end]
 	delete(rs.indices, last.address)

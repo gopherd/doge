@@ -187,5 +187,5 @@ func Init(flagSet *flag.FlagSet, cfg Configurator, options ...Option) error {
 // Discoverable represents a discoverable configurator
 type Discoverable interface {
 	// DiscoveredContent returns a discovered data
-	DiscoveredContent() interface{}
+	DiscoveredContent() any
 }

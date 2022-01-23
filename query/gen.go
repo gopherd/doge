@@ -1,4 +1,6 @@
+//go:build ignore_genparser
 // +build ignore_genparser
+
 //
 // generate command:
 //

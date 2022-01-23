@@ -9,7 +9,7 @@ import (
 )
 
 // New returns an error that formats as the given text.
-func New(text string, args ...interface{}) error {
+func New(text string, args ...any) error {
 	if len(args) > 0 {
 		return fmt.Errorf(text, args...)
 	}
@@ -69,7 +69,7 @@ func Throw(err error) error {
 }
 
 // Throwf returns an error that formats as the given text with source code position information.
-func Throwf(format string, args ...interface{}) error {
+func Throwf(format string, args ...any) error {
 	return &throwedError{
 		pos: getCaller(1),
 		err: fmt.Errorf(format, args...),

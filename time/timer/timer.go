@@ -312,7 +312,7 @@ func (s *memoryScheduler) Swap(i, j int) {
 }
 
 // Push implements heap.Interface Push method
-func (s *memoryScheduler) Push(x interface{}) {
+func (s *memoryScheduler) Push(x any) {
 	g := x.(group)
 	l := len(s.groups)
 	s.groups = append(s.groups, g)
@@ -320,7 +320,7 @@ func (s *memoryScheduler) Push(x interface{}) {
 }
 
 // Pop implements heap.Interface Pop method
-func (s *memoryScheduler) Pop() interface{} {
+func (s *memoryScheduler) Pop() any {
 	l := len(s.groups)
 	x := s.groups[l-1]
 	s.groups = s.groups[:l-1]

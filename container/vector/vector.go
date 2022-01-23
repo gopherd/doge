@@ -31,25 +31,3 @@ func (v *Vector[T]) PushFront(x T) {
 	copy((*v)[1:], (*v)[0:len(*v)-1])
 	(*v)[0] = x
 }
-
-func (v *Vector[T]) PopBack() T {
-	var x = (*v)[len(*v)-1]
-	*v = (*v)[:len(*v)-1]
-	return x
-}
-
-func (v *Vector[T]) PopFront() T {
-	var x = (*v)[0]
-	*v = (*v)[1:]
-	return x
-}
-
-func (v *Vector[T]) Insert(i int, x T) {
-	if cap(*v) > len(*v) {
-		*v = (*v)[:len(*v)+1]
-	} else {
-		*v = append(*v, x)
-	}
-	copy((*v)[i+1:], (*v)[i:])
-	(*v)[i] = x
-}

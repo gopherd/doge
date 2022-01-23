@@ -218,7 +218,7 @@ func (v *Value) SetInteger(i int64) *Value {
 }
 
 // Set sets the value from interface
-func (v *Value) Set(x interface{}) error {
+func (v *Value) Set(x any) error {
 	v.raw.Reset()
 	return reflect(v, x)
 }
@@ -299,7 +299,7 @@ func (v *Value) writeStringValue(value string) {
 	v.end = v.raw.Len()
 }
 
-func reflectArray(v *Value, x []interface{}) error {
+func reflectArray(v *Value, x []any) error {
 	elements := v.getElements()
 	v.Type = ArrayType
 	v.writeBegin(itob(len(x)))
@@ -313,14 +313,14 @@ func reflectArray(v *Value, x []interface{}) error {
 	return nil
 }
 
-func reflect(to *Value, x interface{}) error {
+func reflect(to *Value, x any) error {
 	to.clear()
 	if x == nil {
 		to.reset(BytesType, nil, true)
 		return nil
 	}
 	switch v := x.(type) {
-	case []interface{}:
+	case []any:
 		return reflectArray(to, v)
 	case string:
 		to.Type = BytesType

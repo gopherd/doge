@@ -132,6 +132,6 @@ func (httpd *HTTPServer) Handle(pattern string, handler http.Handler, middleware
 	})
 }
 
-func (httpd *HTTPServer) JSONResponse(w http.ResponseWriter, r *http.Request, data interface{}, options ...ResponseOptions) error {
+func (httpd *HTTPServer) JSONResponse(w http.ResponseWriter, r *http.Request, data any, options ...ResponseOptions) error {
 	return JSONResponse(w, data, options...)
 }

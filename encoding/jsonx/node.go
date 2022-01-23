@@ -25,7 +25,7 @@ type Node interface {
 	// ByKey gets child node by key, nil returned if key not found
 	ByKey(key string) Node
 	// Value returns value of node as an interface
-	Value() interface{}
+	Value() any
 	// IsEmpty indicates whther node is empty
 	IsEmpty() bool
 
@@ -114,8 +114,8 @@ func (n *objectNode) addChild(key string, value Node) {
 	}
 }
 
-func (n objectNode) Value() interface{} {
-	m := make(map[string]interface{})
+func (n objectNode) Value() any {
+	m := make(map[string]any)
 	for _, kv := range n.children {
 		m[kv.key] = kv.value.Value()
 	}
@@ -198,12 +198,12 @@ func (n *arrayNode) addChild(value Node) {
 	n.children = append(n.children, value)
 }
 
-func (n arrayNode) Value() interface{} {
+func (n arrayNode) Value() any {
 	size := len(n.children)
 	if size == 0 {
-		return []interface{}{}
+		return []any{}
 	}
-	s := make([]interface{}, 0, size)
+	s := make([]any, 0, size)
 	for _, child := range n.children {
 		s = append(s, child.Value())
 	}
@@ -280,7 +280,7 @@ func newLiteralNode(pos scanner.Position, tok rune, value string) (*literalNode,
 	return n, nil
 }
 
-func (n literalNode) Value() interface{} {
+func (n literalNode) Value() any {
 	switch n.kind {
 	case encoding.Char:
 		value, _, _, _ := strconv.UnquoteChar(n.value, '\'')

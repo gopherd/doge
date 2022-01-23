@@ -1,5 +1,10 @@
 package container
 
+type Pair[T1, T2 any] struct {
+	First  T1
+	Second T2
+}
+
 // TreeFormatter contains options for formatting Tree
 type TreeFormatter struct {
 	Prefix string

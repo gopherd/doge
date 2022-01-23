@@ -49,7 +49,7 @@ func (state State) String() string {
 
 // DiscoveryContent is the content for registering
 type DiscoveryContent struct {
-	Config interface{} `json:"config"` // config of service
+	Config any `json:"config"` // config of service
 	State  struct {
 		Updated int64  `json:"updated"`
 		PID     int    `json:"pid"`   // process id

@@ -177,7 +177,7 @@ func WithContentType(contentType string) ResponseOptions {
 	}
 }
 
-func Response(w http.ResponseWriter, body interface{}, options ...ResponseOptions) error {
+func Response(w http.ResponseWriter, body any, options ...ResponseOptions) error {
 	var opts = newResponseOptions()
 	mergeOptions(opts, options...)
 	if body != nil {
@@ -206,15 +206,15 @@ func Response(w http.ResponseWriter, body interface{}, options ...ResponseOption
 	return nil
 }
 
-func JSONResponse(w http.ResponseWriter, value interface{}, options ...ResponseOptions) error {
+func JSONResponse(w http.ResponseWriter, value any, options ...ResponseOptions) error {
 	return Response(w, value, append(options, WithContentType(MIMEApplicationJSONCharsetUTF8))...)
 }
 
-func XMLResponse(w http.ResponseWriter, value interface{}, options ...ResponseOptions) error {
+func XMLResponse(w http.ResponseWriter, value any, options ...ResponseOptions) error {
 	return Response(w, value, append(options, WithContentType(MIMEApplicationXMLCharsetUTF8))...)
 }
 
-func FormResponse(w http.ResponseWriter, value interface{}, options ...ResponseOptions) error {
+func FormResponse(w http.ResponseWriter, value any, options ...ResponseOptions) error {
 	return Response(w, value, append(options, WithContentType(MIMEApplicationFormCharsetUTF8))...)
 }
 
@@ -222,13 +222,13 @@ func TextResponse(w http.ResponseWriter, value string, options ...ResponseOption
 	return Response(w, value, append(options, WithContentType(MIMETextPlain))...)
 }
 
-type MarshalFunc func(interface{}) ([]byte, error)
+type MarshalFunc func(any) ([]byte, error)
 
 type FormMarshaler interface {
 	MarshalForm() ([]byte, error)
 }
 
-func marshalForm(v interface{}) ([]byte, error) {
+func marshalForm(v any) ([]byte, error) {
 	if marshaler, ok := v.(FormMarshaler); ok {
 		return marshaler.MarshalForm()
 	}
@@ -283,7 +283,7 @@ func VerifySign(signer Signer, key, keyField, signField string, args url.Values)
 	return nil
 }
 
-func PostFormJSON(httpc *http.Client, url_ string, data url.Values, res interface{}) error {
+func PostFormJSON(httpc *http.Client, url_ string, data url.Values, res any) error {
 	response, err := httpc.PostForm(url_, data)
 	if response != nil && response.Body != nil {
 		defer response.Body.Close()
@@ -301,8 +301,8 @@ func PostFormJSON(httpc *http.Client, url_ string, data url.Values, res interfac
 }
 
 type Pager struct {
-	Total int64       `json:"total"`
-	Curr  int         `json:"curr"`
-	Limit int         `json:"limit"`
-	List  interface{} `json:"list"`
+	Total int64 `json:"total"`
+	Curr  int   `json:"curr"`
+	Limit int   `json:"limit"`
+	List  any   `json:"list"`
 }

@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"math/rand"
 	"reflect"
-	"sort"
 	"time"
 )
 
@@ -145,38 +144,19 @@ func Perm(n int, source Source) []int {
 	return s
 }
 
-type SwapableSlice interface {
+type Slice interface {
 	Len() int
 	Swap(i, j int)
 }
 
-func Shuffle(orders SwapableSlice, source Source) {
-	for i := orders.Len() - 1; i >= 0; i-- {
+func Shuffle[T Slice](slice T, source Source) {
+	for i := slice.Len() - 1; i >= 0; i-- {
 		if source == nil {
-			orders.Swap(i, rand.Intn(i+1))
+			slice.Swap(i, rand.Intn(i+1))
 		} else {
-			orders.Swap(i, int(source.Int63())%(i+1))
+			slice.Swap(i, int(source.Int63())%(i+1))
 		}
 	}
-}
-
-func ShuffleInts(orders []int, source Source)       { Shuffle(sort.IntSlice(orders), source) }
-func ShuffleFloats(orders []float64, source Source) { Shuffle(sort.Float64Slice(orders), source) }
-func ShuffleStrings(orders []string, source Source) { Shuffle(sort.StringSlice(orders), source) }
-
-type swapableSlice struct {
-	swapper func(int, int)
-	length  int
-}
-
-func (s swapableSlice) Len() int      { return s.length }
-func (s swapableSlice) Swap(i, j int) { s.swapper(i, j) }
-
-func ShuffleSlice(slice interface{}, source Source) {
-	Shuffle(swapableSlice{
-		swapper: reflect.Swapper(slice),
-		length:  reflect.ValueOf(slice).Len(),
-	}, source)
 }
 
 // FiniteDistribution represents probability distribution
@@ -237,6 +217,6 @@ type probabilityDistribution struct {
 func (d probabilityDistribution) Len() int              { return d.length }
 func (d probabilityDistribution) Probability(i int) int { return d.probability(i) }
 
-func IndexSlice(d interface{}, probability func(int) int, source Source) int {
+func IndexSlice(d any, probability func(int) int, source Source) int {
 	return Index(probabilityDistribution{probability, reflect.ValueOf(d).Len()}, source)
 }

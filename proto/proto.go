@@ -201,7 +201,7 @@ func (pp *Pool) getp(typ Type) *sync.Pool {
 	if p, ok := pp.pools[typ]; ok {
 		return p
 	}
-	p := &sync.Pool{New: func() interface{} { return f() }}
+	p := &sync.Pool{New: func() any { return f() }}
 	pp.pools[typ] = p
 	return p
 }

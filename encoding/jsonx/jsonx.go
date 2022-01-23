@@ -120,7 +120,7 @@ func WriteFile(filename string, node Node, perm os.FileMode, opts ...Option) err
 }
 
 // Unmarshal wraps json.Unmarshal with options
-func Unmarshal(data []byte, v interface{}, opts ...Option) error {
+func Unmarshal(data []byte, v any, opts ...Option) error {
 	if len(opts) == 0 {
 		return json.Unmarshal(data, v)
 	}
@@ -137,7 +137,7 @@ func Unmarshal(data []byte, v interface{}, opts ...Option) error {
 }
 
 // Marshal marshal value v to json with options
-func Marshal(v interface{}, opts ...Option) ([]byte, error) {
+func Marshal(v any, opts ...Option) ([]byte, error) {
 	return json.Marshal(v)
 }
 
@@ -156,7 +156,7 @@ func NewDecoder(r io.Reader, opts ...Option) *Decoder {
 }
 
 // Decode decodes data and stores it in the valyala pointed to by v
-func (decoder *Decoder) Decode(v interface{}) error {
+func (decoder *Decoder) Decode(v any) error {
 	node, err := Read(decoder.r, decoder.opt.clone)
 	if err != nil {
 		return err
