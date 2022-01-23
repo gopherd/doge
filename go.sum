@@ -1,4 +1,4 @@
 github.com/google/uuid v1.2.0 h1:qJYtXnJRWmpe7m/3XlyhrsLrEURqHRM2kxzoxXqyUDs=
 github.com/google/uuid v1.2.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/gopherd/log v0.1.5 h1:mCUkSsjJnRjvrmF6mh7Rvo+kyS/6VorYYvHrzAfqT6o=
-github.com/gopherd/log v0.1.5/go.mod h1:3gfrf1i6YwDhX/UPQtWHZVTcBrhurIVms0kjcLeNXR4=
+github.com/gopherd/log v0.1.9 h1:ODHGwOlL+gdnmRUE5c4xindKnNEMcIVxpYHiHl2ySyE=
+github.com/gopherd/log v0.1.9/go.mod h1:y8QXqAE5V56H3BNO8o1vwSXx8PaYxxOp0Ce+LwFijfs=
