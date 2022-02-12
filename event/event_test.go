@@ -3,7 +3,7 @@ package event_test
 import (
 	"testing"
 
-	"github.com/gopherd/threego/three/event"
+	"github.com/gopherd/doge/event"
 )
 
 type testEvent struct {
