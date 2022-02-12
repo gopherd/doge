@@ -5,6 +5,10 @@ type Pair[T1, T2 any] struct {
 	Second T2
 }
 
+func MakePair[T1, T2 any](first T1, second T2) Pair[T1, T2] {
+	return Pair[T1, T2]{First: first, Second: second}
+}
+
 // TreeFormatter contains options for formatting Tree
 type TreeFormatter struct {
 	Prefix string

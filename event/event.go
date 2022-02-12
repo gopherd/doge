@@ -1,55 +1,113 @@
 package event
 
-// Type represents type of event
-type Type int64
+import (
+	"fmt"
 
-// Event represents an event data
+	"github.com/gopherd/doge/container"
+)
+
+// ID represents type of event ID
+type ID = int64
+
+// Type represents type of event type
+type Type = string
+
+// Event is the interface that wraps the basic Type method.
 type Event interface {
 	Type() Type
 }
 
-// Handler handles event
-type Handler interface {
-	Handle(Event) (swallowed bool)
+// A Listener handles fired event
+type Listener interface {
+	Listen(Event)
 }
 
-// HandlerFunc wraps a function as Handler
-type HandlerFunc func(Event) (swallowed bool)
-
-// Handle implements Handler HandleEvent method
-func (fn HandlerFunc) Handle(e Event) bool { return fn(e) }
-
-// Registry manages event handlers
-type Registry struct {
-	handlers map[Type][]Handler
+// Listen wraps the handler func as a Listener
+func Listen[E Event](handler func(E)) Listener {
+	return listenerFunc[E]{handler}
 }
 
-// NewRegistry creates an event registry
-func NewRegistry() *Registry {
-	return &Registry{
-		handlers: make(map[Type][]Handler),
+type listenerFunc[E Event] struct {
+	fn func(E)
+}
+
+func (h listenerFunc[E]) Listen(event Event) {
+	if e, ok := event.(E); ok {
+		h.fn(e)
+	} else {
+		panic(fmt.Sprintf("unexpected event %T for type %s", event, event.Type()))
 	}
 }
 
-// Handle registers event handler by type
-func (r *Registry) Handle(t Type, h Handler) {
-	r.handlers[t] = append(r.handlers[t], h)
+// Dispatcher represents an event dispatcher
+type Dispatcher interface {
+	// AddEventListener registers a Listener by Type and returns the event ID
+	AddEventListener(Type, Listener) ID
+	// HasEventListener reports whether the Dispatcher has specified event handler
+	HasEventListener(Type, ID) bool
+	// RemoveEventListener removes specified event handler
+	RemoveEventListener(Type, ID) bool
+	// DispatchEvent dispatchs event
+	DispatchEvent(Event)
 }
 
-// HandleFunc registers event handler func by type
-func (r *Registry) HandleFunc(t Type, h HandlerFunc) {
-	r.handlers[t] = append(r.handlers[t], h)
+// BaseDispatcher implements a basic Dispatcher
+type BaseDispatcher struct {
+	nextId   ID
+	handlers map[Type][]container.Pair[ID, Listener]
 }
 
-// Post posts event to handlers by type
-func (r *Registry) Post(e Event) {
-	handlers, ok := r.handlers[e.Type()]
-	if !ok {
-		return
+// NewDispatcher creates a BaseDispatcher
+func NewDispatcher() *BaseDispatcher {
+	return &BaseDispatcher{
+		handlers: make(map[Type][]container.Pair[ID, Listener]),
 	}
-	for i := range handlers {
-		if handlers[i].Handle(e) {
-			return
+}
+
+// AddEventListener implements Dispatcher AddEventListener method
+func (dispatcher *BaseDispatcher) AddEventListener(eventType Type, handler Listener) ID {
+	dispatcher.nextId++
+	id := dispatcher.nextId
+	dispatcher.handlers[eventType] = append(dispatcher.handlers[eventType], container.MakePair(id, handler))
+	return id
+}
+
+// HasEventListener implements Dispatcher HasEventListener method
+func (dispatcher *BaseDispatcher) HasEventListener(eventType Type, id ID) bool {
+	if handlers, ok := dispatcher.handlers[eventType]; ok {
+		for i := range handlers {
+			if handlers[i].First == id {
+				return true
+			}
 		}
 	}
+	return false
+}
+
+// RemoveEventListener implements Dispatcher RemoveEventListener method
+func (dispatcher *BaseDispatcher) RemoveEventListener(eventType Type, id ID) bool {
+	if handlers, ok := dispatcher.handlers[eventType]; ok {
+		for i := range handlers {
+			if handlers[i].First == id {
+				copy(handlers[i:], handlers[i+1:])
+				var n = len(handlers) - 1
+				handlers[n].Second = nil
+				dispatcher.handlers[eventType] = handlers[:n]
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// DispatchEvent implements Dispatcher DispatchEvent method
+func (dispatcher *BaseDispatcher) DispatchEvent(event Event) bool {
+	handlers, ok := dispatcher.handlers[event.Type()]
+	if !ok || len(handlers) == 0 {
+		return false
+	}
+	for i := range handlers {
+		handlers[i].Second.Listen(event)
+	}
+	return true
 }

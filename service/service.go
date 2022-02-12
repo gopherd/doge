@@ -108,6 +108,7 @@ func Since() time.Duration {
 
 // Run runs the service
 func Run(app Service) {
+	log.Info().String("name", app.Name()).Print("running service")
 	if err := exec(app); err != nil {
 		code, _ := config.IsExitError(err)
 		if code != 0 {
