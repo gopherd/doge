@@ -7,3 +7,11 @@ func Or[T comparable](source, value T) T {
 	}
 	return source
 }
+
+func OrNew[T comparable](source T, new func() T) T {
+	var zero T
+	if source == zero {
+		return new()
+	}
+	return source
+}
