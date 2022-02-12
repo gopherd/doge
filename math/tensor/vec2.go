@@ -1,56 +1,60 @@
 package tensor
 
-import "math"
+import (
+	"math"
+
+	"github.com/gopherd/doge/math/mathutil"
+)
 
 // Vector2 implements 2d vector
-type Vector2 [2]float32
+type Vector2[T mathutil.Real] [2]T
 
-func Vec2(x, y float32) Vector2 {
-	return Vector2{x, y}
+func Vec2[T mathutil.Real](x, y T) Vector2[T] {
+	return Vector2[T]{x, y}
 }
 
-func (vec Vector2) X() float32 { return vec[0] }
-func (vec Vector2) Y() float32 { return vec[1] }
+func (vec Vector2[T]) X() T { return vec[0] }
+func (vec Vector2[T]) Y() T { return vec[1] }
 
-func (vec Vector2) Vec3() Vector3 { return Vec3(vec[0], vec[1], 0) }
-func (vec Vector2) Vec4() Vector4 { return Vec4(vec[0], vec[1], 0, 1) }
+func (vec Vector2[T]) Vec3() Vector3[T] { return Vec3(vec[0], vec[1], 0) }
+func (vec Vector2[T]) Vec4() Vector4[T] { return Vec4(vec[0], vec[1], 0, 1) }
 
-func (vec Vector2) Sum() float32 {
+func (vec Vector2[T]) Sum() T {
 	return vec[0] + vec[1]
 }
 
-func (vec Vector2) Dot(other Vector2) float32 {
+func (vec Vector2[T]) Dot(other Vector2[T]) T {
 	return vec[0]*other[0] + vec[1]*other[1]
 }
 
-func (vec Vector2) Square() float32 {
+func (vec Vector2[T]) Square() T {
 	return vec.Dot(vec)
 }
 
-func (vec Vector2) Length() float32 {
-	return float32(math.Sqrt(float64(vec.Square())))
+func (vec Vector2[T]) Length() T {
+	return T(math.Sqrt(float64(vec.Square())))
 }
 
-func (vec Vector2) Add(other Vector2) Vector2 {
+func (vec Vector2[T]) Add(other Vector2[T]) Vector2[T] {
 	return Vec2(vec[0]+other[0], vec[1]+other[1])
 }
 
-func (vec Vector2) Sub(other Vector2) Vector2 {
+func (vec Vector2[T]) Sub(other Vector2[T]) Vector2[T] {
 	return Vec2(vec[0]-other[0], vec[1]-other[1])
 }
 
-func (vec Vector2) Mul(k float32) Vector2 {
+func (vec Vector2[T]) Mul(k T) Vector2[T] {
 	return Vec2(vec[0]*k, vec[1]*k)
 }
 
-func (vec Vector2) Div(k float32) Vector2 {
+func (vec Vector2[T]) Div(k T) Vector2[T] {
 	return Vec2(vec[0]/k, vec[1]/k)
 }
 
-func (vec Vector2) Hadamard(other Vector2) Vector2 {
+func (vec Vector2[T]) Hadamard(other Vector2[T]) Vector2[T] {
 	return Vec2(vec[0]*other[0], vec[1]*vec[1])
 }
 
-func (vec Vector2) Normalize() Vector2 {
+func (vec Vector2[T]) Normalize() Vector2[T] {
 	return vec.Div(vec.Length())
 }

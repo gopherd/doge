@@ -1,33 +1,39 @@
 package tensor
 
-import "math"
+import (
+	"math"
 
-type Mat4x4 [4 * 4]float32
+	"github.com/gopherd/doge/math/mathutil"
+)
 
-var One4x4 = Mat4x4{
-	1, 0, 0, 0,
-	0, 1, 0, 0,
-	0, 0, 1, 0,
-	0, 0, 0, 1,
+type Mat4x4[T mathutil.Real] [4 * 4]T
+
+func One4x4[T mathutil.Real]() Mat4x4[T] {
+	return Mat4x4[T]{
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1,
+	}
 }
 
-func (mat Mat4x4) Get(i, j int) float32 {
+func (mat Mat4x4[T]) Get(i, j int) T {
 	return mat[j+i*4]
 }
 
-func (mat *Mat4x4) Set(i, j int, value float32) {
+func (mat *Mat4x4[T]) Set(i, j int, value T) {
 	(*mat)[j+i*4] = value
 }
 
-func (mat Mat4x4) Sum() float32 {
-	var result float32
+func (mat Mat4x4[T]) Sum() T {
+	var result T
 	for i := range mat {
 		result += mat[i]
 	}
 	return result
 }
 
-func (mat Mat4x4) Transpose() Mat4x4 {
+func (mat Mat4x4[T]) Transpose() Mat4x4[T] {
 	for i := 0; i < 3; i++ {
 		for j := i + 1; j < 4; j++ {
 			mat[i+j*4], mat[j+i*4] = mat[j+i*4], mat[i+j*4]
@@ -36,8 +42,8 @@ func (mat Mat4x4) Transpose() Mat4x4 {
 	return mat
 }
 
-func (mat Mat4x4) Dot(other Mat4x4) Mat4x4 {
-	var result Mat4x4
+func (mat Mat4x4[T]) Dot(other Mat4x4[T]) Mat4x4[T] {
+	var result Mat4x4[T]
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 4; j++ {
 			index := j + i*4
@@ -49,16 +55,16 @@ func (mat Mat4x4) Dot(other Mat4x4) Mat4x4 {
 	return result
 }
 
-func (mat Mat4x4) DotVec2(vec Vector2) Vector3 {
+func (mat Mat4x4[T]) DotVec2(vec Vector2[T]) Vector3[T] {
 	return mat.DotVec4(vec.Vec4()).Vec3()
 }
 
-func (mat Mat4x4) DotVec3(vec Vector3) Vector3 {
+func (mat Mat4x4[T]) DotVec3(vec Vector3[T]) Vector3[T] {
 	return mat.DotVec4(vec.Vec4()).Vec3()
 }
 
-func (mat Mat4x4) DotVec4(vec Vector4) Vector4 {
-	var result Vector4
+func (mat Mat4x4[T]) DotVec4(vec Vector4[T]) Vector4[T] {
+	var result Vector4[T]
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 4; j++ {
 			result[i] += mat[j+i*4] * vec[j]
@@ -67,49 +73,49 @@ func (mat Mat4x4) DotVec4(vec Vector4) Vector4 {
 	return result
 }
 
-func (mat Mat4x4) Square() float32 {
+func (mat Mat4x4[T]) Square() T {
 	return mat.Hadamard(mat).Sum()
 }
 
-func (mat Mat4x4) Length() float32 {
-	return float32(math.Sqrt(float64(mat.Square())))
+func (mat Mat4x4[T]) Length() T {
+	return T(math.Sqrt(float64(mat.Square())))
 }
 
-func (mat Mat4x4) Add(other Mat4x4) Mat4x4 {
+func (mat Mat4x4[T]) Add(other Mat4x4[T]) Mat4x4[T] {
 	for i := range mat {
 		mat[i] += other[i]
 	}
 	return mat
 }
 
-func (mat Mat4x4) Sub(other Mat4x4) Mat4x4 {
+func (mat Mat4x4[T]) Sub(other Mat4x4[T]) Mat4x4[T] {
 	for i := range mat {
 		mat[i] -= other[i]
 	}
 	return mat
 }
 
-func (mat Mat4x4) Mul(v float32) Mat4x4 {
+func (mat Mat4x4[T]) Mul(v T) Mat4x4[T] {
 	for i := range mat {
 		mat[i] *= v
 	}
 	return mat
 }
 
-func (mat Mat4x4) Div(v float32) Mat4x4 {
+func (mat Mat4x4[T]) Div(v T) Mat4x4[T] {
 	for i := range mat {
 		mat[i] /= v
 	}
 	return mat
 }
 
-func (mat Mat4x4) Hadamard(other Mat4x4) Mat4x4 {
+func (mat Mat4x4[T]) Hadamard(other Mat4x4[T]) Mat4x4[T] {
 	for i := range mat {
 		mat[i] *= other[i]
 	}
 	return mat
 }
 
-func (mat Mat4x4) Normalize() Mat4x4 {
+func (mat Mat4x4[T]) Normalize() Mat4x4[T] {
 	return mat.Div(mat.Length())
 }
