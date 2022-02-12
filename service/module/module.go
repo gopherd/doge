@@ -21,44 +21,44 @@ type Module interface {
 	Update(time.Time, time.Duration)
 }
 
-// BaseModule implements the Module interface{}
-type BaseModule struct {
+// BasicModule implements the Module interface{}
+type BasicModule struct {
 	name   string
 	logger *log.ContextLogger
 }
 
-// NewBaseModule creates a BaseModule
-func NewBaseModule(name string) *BaseModule {
-	return &BaseModule{
+// NewBasicModule creates a BasicModule
+func NewBasicModule(name string) *BasicModule {
+	return &BasicModule{
 		name:   name,
 		logger: log.Prefix(nil, name),
 	}
 }
 
 // Name implements Module Name method
-func (mod *BaseModule) Name() string {
+func (mod *BasicModule) Name() string {
 	return mod.name
 }
 
 // Init implements Module Init method
-func (mod *BaseModule) Init() error {
+func (mod *BasicModule) Init() error {
 	return nil
 }
 
 // Start implements Module Start method
-func (mod *BaseModule) Start() {
+func (mod *BasicModule) Start() {
 }
 
 // Shutdown implements Module Shutdown method
-func (mod *BaseModule) Shutdown() {
+func (mod *BasicModule) Shutdown() {
 }
 
 // Update implements Module Update method
-func (mod *BaseModule) Update(now time.Time, dt time.Duration) {
+func (mod *BasicModule) Update(now time.Time, dt time.Duration) {
 }
 
 // Logger returns the Module logger
-func (mod *BaseModule) Logger() *log.ContextLogger {
+func (mod *BasicModule) Logger() *log.ContextLogger {
 	return mod.logger
 }
 

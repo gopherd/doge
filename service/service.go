@@ -161,8 +161,8 @@ func exec(app Service) error {
 	return app.Shutdown()
 }
 
-// BaseService implements Service
-type BaseService struct {
+// BasicService implements Service
+type BasicService struct {
 	self  Service
 	name  string
 	id    int64
@@ -185,9 +185,9 @@ type BaseService struct {
 	}
 }
 
-// NewBaseService creates a BaseService
-func NewBaseService(self Service, cfg config.Configurator) *BaseService {
-	s := &BaseService{
+// NewBasicService creates a BasicService
+func NewBasicService(self Service, cfg config.Configurator) *BasicService {
+	s := &BasicService{
 		self:    self,
 		uuid:    strings.ReplaceAll(uuid.NewString(), "-", ""),
 		modules: module.NewManager(),
@@ -200,52 +200,52 @@ func NewBaseService(self Service, cfg config.Configurator) *BaseService {
 }
 
 // AddModule adds a module to service
-func (app *BaseService) AddModule(mod module.Module) module.Module {
+func (app *BasicService) AddModule(mod module.Module) module.Module {
 	return app.modules.Add(mod)
 }
 
 // Name implements Service Name method
-func (app *BaseService) Name() string {
+func (app *BasicService) Name() string {
 	return app.name
 }
 
 // ID implements Service ID method
-func (app *BaseService) ID() int64 {
+func (app *BasicService) ID() int64 {
 	return app.id
 }
 
 // UUID implements service UUID method
-func (app *BaseService) UUID() string {
+func (app *BasicService) UUID() string {
 	return app.uuid
 }
 
 // Busy implements Service Busy method
-func (app *BaseService) Busy() bool {
+func (app *BasicService) Busy() bool {
 	return false
 }
 
 // State returns state of service
-func (app *BaseService) State() State {
+func (app *BasicService) State() State {
 	return app.state
 }
 
 // SetState implements Service SetState method
-func (app *BaseService) SetState(state State) error {
+func (app *BasicService) SetState(state State) error {
 	app.state = state
 	return app.register(state == Running)
 }
 
 // Discovery returns the discovery engine
-func (app *BaseService) Discovery() discovery.Discovery {
+func (app *BasicService) Discovery() discovery.Discovery {
 	return app.discovery
 }
 
 // MQ returns the mq engine
-func (app *BaseService) MQ() mq.Conn {
+func (app *BasicService) MQ() mq.Conn {
 	return app.mq
 }
 
-func (app *BaseService) register(nx bool) error {
+func (app *BasicService) register(nx bool) error {
 	if app.discovery == nil {
 		return nil
 	}
@@ -311,14 +311,14 @@ func (app *BaseService) register(nx bool) error {
 	return nil
 }
 
-func (app *BaseService) unregister() error {
+func (app *BasicService) unregister() error {
 	if app.discovery == nil {
 		return nil
 	}
 	return app.discovery.Unregister(context.Background(), app.Name(), strconv.FormatInt(app.ID(), 10))
 }
 
-func (app *BaseService) reloadCfg() {
+func (app *BasicService) reloadCfg() {
 	if !app.config.canReload {
 		return
 	}
@@ -347,7 +347,7 @@ func (app *BaseService) reloadCfg() {
 }
 
 // Init implements Service Init method
-func (app *BaseService) Init() error {
+func (app *BasicService) Init() error {
 	cfg := app.config.ptr.Load().(config.Configurator)
 	defaultSource := build.Name() + ".conf"
 	flag.CommandLine.BoolVar(&app.force, "F", false, "Whether force startup service while it not closed but expired")
@@ -421,20 +421,20 @@ func (app *BaseService) Init() error {
 }
 
 // Start implements Service Start method
-func (app *BaseService) Start() error {
+func (app *BasicService) Start() error {
 	app.modules.Start()
 	return nil
 }
 
 // Shutdown implements Service Shutdown method
-func (app *BaseService) Shutdown() error {
+func (app *BasicService) Shutdown() error {
 	app.modules.Shutdown()
 	app.unregister()
 	return nil
 }
 
 // Update updates per frame
-func (app *BaseService) Update(now time.Time, dt time.Duration) {
+func (app *BasicService) Update(now time.Time, dt time.Duration) {
 	app.modules.Update(now, dt)
 	if app.tickers.keepalive.Next(now) {
 		app.register(false)

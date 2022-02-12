@@ -51,21 +51,21 @@ type Dispatcher interface {
 	DispatchEvent(Event)
 }
 
-// BaseDispatcher implements a basic Dispatcher
-type BaseDispatcher struct {
+// BasicDispatcher implements a basic Dispatcher
+type BasicDispatcher struct {
 	nextId   ID
 	handlers map[Type][]container.Pair[ID, Listener]
 }
 
-// NewDispatcher creates a BaseDispatcher
-func NewDispatcher() *BaseDispatcher {
-	return &BaseDispatcher{
+// NewDispatcher creates a BasicDispatcher
+func NewDispatcher() *BasicDispatcher {
+	return &BasicDispatcher{
 		handlers: make(map[Type][]container.Pair[ID, Listener]),
 	}
 }
 
 // AddEventListener implements Dispatcher AddEventListener method
-func (dispatcher *BaseDispatcher) AddEventListener(eventType Type, handler Listener) ID {
+func (dispatcher *BasicDispatcher) AddEventListener(eventType Type, handler Listener) ID {
 	dispatcher.nextId++
 	id := dispatcher.nextId
 	dispatcher.handlers[eventType] = append(dispatcher.handlers[eventType], container.MakePair(id, handler))
@@ -73,7 +73,7 @@ func (dispatcher *BaseDispatcher) AddEventListener(eventType Type, handler Liste
 }
 
 // HasEventListener implements Dispatcher HasEventListener method
-func (dispatcher *BaseDispatcher) HasEventListener(eventType Type, id ID) bool {
+func (dispatcher *BasicDispatcher) HasEventListener(eventType Type, id ID) bool {
 	if handlers, ok := dispatcher.handlers[eventType]; ok {
 		for i := range handlers {
 			if handlers[i].First == id {
@@ -85,7 +85,7 @@ func (dispatcher *BaseDispatcher) HasEventListener(eventType Type, id ID) bool {
 }
 
 // RemoveEventListener implements Dispatcher RemoveEventListener method
-func (dispatcher *BaseDispatcher) RemoveEventListener(eventType Type, id ID) bool {
+func (dispatcher *BasicDispatcher) RemoveEventListener(eventType Type, id ID) bool {
 	if handlers, ok := dispatcher.handlers[eventType]; ok {
 		for i := range handlers {
 			if handlers[i].First == id {
@@ -101,7 +101,7 @@ func (dispatcher *BaseDispatcher) RemoveEventListener(eventType Type, id ID) boo
 }
 
 // DispatchEvent implements Dispatcher DispatchEvent method
-func (dispatcher *BaseDispatcher) DispatchEvent(event Event) bool {
+func (dispatcher *BasicDispatcher) DispatchEvent(event Event) bool {
 	handlers, ok := dispatcher.handlers[event.Type()]
 	if !ok || len(handlers) == 0 {
 		return false

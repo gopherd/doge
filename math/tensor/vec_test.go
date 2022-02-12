@@ -8,15 +8,15 @@ import (
 
 func TestSum(t *testing.T) {
 	type testCase struct {
-		vec tensor.Vector2
+		vec tensor.Vector2[float32]
 		sum float32
 	}
 	for i, tc := range []testCase{
-		{tensor.Vec2(0, 0), 0},
-		{tensor.Vec2(1, 0), 1},
-		{tensor.Vec2(0, 1), 1},
-		{tensor.Vec2(1, 1), 2},
-		{tensor.Vec2(0.5, 0.5), 1},
+		{tensor.Vec2[float32](0, 0), 0},
+		{tensor.Vec2[float32](1, 0), 1},
+		{tensor.Vec2[float32](0, 1), 1},
+		{tensor.Vec2[float32](1, 1), 2},
+		{tensor.Vec2[float32](0.5, 0.5), 1},
 	} {
 		sum := tc.vec.Sum()
 		if sum != tc.sum {
@@ -27,10 +27,10 @@ func TestSum(t *testing.T) {
 
 func TestAdd(t *testing.T) {
 	type testCase struct {
-		v1, v2, v3 tensor.Vector2
+		v1, v2, v3 tensor.Vector2[float32]
 	}
 	for i, tc := range []testCase{
-		{tensor.Vec2(1, 2), tensor.Vec2(3, 4), tensor.Vec2(4, 6)},
+		{tensor.Vec2[float32](1, 2), tensor.Vec2[float32](3, 4), tensor.Vec2[float32](4, 6)},
 	} {
 		v := tc.v1.Add(tc.v2)
 		if v != tc.v3 {

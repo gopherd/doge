@@ -54,8 +54,8 @@ func (mode *Mode) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// BaseConfig implments Configurator
-type BaseConfig struct {
+// BasicConfig implments Configurator
+type BasicConfig struct {
 	// source of config
 	source string `json:"-"`
 
@@ -64,7 +64,7 @@ type BaseConfig struct {
 }
 
 // Read implements Configurator Read method
-func (c *BaseConfig) Read(self Configurator, r io.Reader) error {
+func (c *BasicConfig) Read(self Configurator, r io.Reader) error {
 	return jsonx.NewDecoder(r,
 		jsonx.WithSupportComment(),
 		jsonx.WithSupportExtraComma(),
@@ -73,7 +73,7 @@ func (c *BaseConfig) Read(self Configurator, r io.Reader) error {
 }
 
 // Write implements Configurator Write method
-func (c BaseConfig) Write(self Configurator, w io.Writer) error {
+func (c BasicConfig) Write(self Configurator, w io.Writer) error {
 	var enc = jsonx.NewEncoder(w)
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "\t")
@@ -92,21 +92,21 @@ type CoreConfig struct {
 }
 
 // GetSource implements Configurator GetSource method
-func (c *BaseConfig) GetSource() string {
+func (c *BasicConfig) GetSource() string {
 	return c.source
 }
 
 // SetSource implements Configurator SetSource method
-func (c *BaseConfig) SetSource(source string) {
+func (c *BasicConfig) SetSource(source string) {
 	c.source = source
 }
 
 // GetCore implements Configurator GetCore method
-func (c *BaseConfig) GetCore() *CoreConfig {
+func (c *BasicConfig) GetCore() *CoreConfig {
 	return &c.Core
 }
 
-func (c *BaseConfig) OnReload() {
+func (c *BasicConfig) OnReload() {
 	level, ok := log.ParseLevel(c.Core.Log.Level)
 	if ok {
 		log.SetLevel(level)
