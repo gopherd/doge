@@ -48,7 +48,7 @@ type Dispatcher interface {
 	// RemoveEventListener removes specified event handler
 	RemoveEventListener(Type, ID) bool
 	// DispatchEvent dispatchs event
-	DispatchEvent(Event)
+	DispatchEvent(Event) bool
 }
 
 // BasicDispatcher implements a basic Dispatcher
@@ -56,6 +56,8 @@ type BasicDispatcher struct {
 	nextId   ID
 	handlers map[Type][]container.Pair[ID, Listener]
 }
+
+var _ Dispatcher = (*BasicDispatcher)(nil)
 
 // AddEventListener implements Dispatcher AddEventListener method
 func (dispatcher *BasicDispatcher) AddEventListener(eventType Type, handler Listener) ID {
