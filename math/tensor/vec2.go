@@ -16,6 +16,17 @@ func Vec2[T mathutil.Real](x, y T) Vector2[T] {
 func (vec Vector2[T]) X() T { return vec[0] }
 func (vec Vector2[T]) Y() T { return vec[1] }
 
+func (vec *Vector2[T]) SetX(x T) { vec[0] = x }
+func (vec *Vector2[T]) SetY(y T) { vec[1] = y }
+
+func (vec *Vector2[T]) Set(x, y T) {
+	(*vec)[0], (*vec)[1] = x, y
+}
+
+func (vec *Vector2[T]) Copy(other Vector2[T]) {
+	(*vec)[0], (*vec)[1] = other[0], other[1]
+}
+
 func (vec Vector2[T]) Vec3() Vector3[T] { return Vec3(vec[0], vec[1], 0) }
 func (vec Vector2[T]) Vec4() Vector4[T] { return Vec4(vec[0], vec[1], 0, 1) }
 

@@ -9,16 +9,16 @@ var _ event.Dispatcher[any] = (*Dispatcher[any])(nil)
 
 // Dispatcher implements event.Dispatcher
 type Dispatcher[T comparable] struct {
-	nextId    event.ListenerID
-	listeners map[T][]container.Pair[event.ListenerID, event.Listener[T]]
-	mapping   map[event.ListenerID]container.Pair[T, int]
+	nextId    int
+	listeners map[T][]container.Pair[int, event.Listener[T]] // type => [<id, listener>]
+	mapping   map[int]container.Pair[T, int]                 // id => <type, index>
 }
 
 // AddEventListener implements event.Dispatcher AddEventListener method
-func (dispatcher *Dispatcher[T]) AddEventListener(listener event.Listener[T]) event.ListenerID {
+func (dispatcher *Dispatcher[T]) AddEventListener(listener event.Listener[T]) int {
 	if dispatcher.listeners == nil {
-		dispatcher.listeners = make(map[T][]container.Pair[event.ListenerID, event.Listener[T]])
-		dispatcher.mapping = make(map[event.ListenerID]container.Pair[T, int])
+		dispatcher.listeners = make(map[T][]container.Pair[int, event.Listener[T]])
+		dispatcher.mapping = make(map[int]container.Pair[T, int])
 	}
 	dispatcher.nextId++
 	var id = dispatcher.nextId
@@ -31,7 +31,7 @@ func (dispatcher *Dispatcher[T]) AddEventListener(listener event.Listener[T]) ev
 }
 
 // HasEventListener implements event.Dispatcher HasEventListener method
-func (dispatcher *Dispatcher[T]) HasEventListener(id event.ListenerID) bool {
+func (dispatcher *Dispatcher[T]) HasEventListener(id int) bool {
 	if dispatcher.mapping == nil {
 		return false
 	}
@@ -40,7 +40,7 @@ func (dispatcher *Dispatcher[T]) HasEventListener(id event.ListenerID) bool {
 }
 
 // RemoveEventListener implements event.Dispatcher RemoveEventListener method
-func (dispatcher *Dispatcher[T]) RemoveEventListener(id event.ListenerID) bool {
+func (dispatcher *Dispatcher[T]) RemoveEventListener(id int) bool {
 	if dispatcher.mapping == nil {
 		return false
 	}

@@ -18,10 +18,18 @@ func (vec Vector4[T]) Y() T { return vec[1] }
 func (vec Vector4[T]) Z() T { return vec[2] }
 func (vec Vector4[T]) W() T { return vec[3] }
 
-func (vec Vector4[T]) R() T { return vec[0] }
-func (vec Vector4[T]) G() T { return vec[1] }
-func (vec Vector4[T]) B() T { return vec[2] }
-func (vec Vector4[T]) A() T { return vec[3] }
+func (vec *Vector4[T]) SetX(x T) { vec[0] = x }
+func (vec *Vector4[T]) SetY(y T) { vec[1] = y }
+func (vec *Vector4[T]) SetZ(z T) { vec[2] = z }
+func (vec *Vector4[T]) SetW(w T) { vec[3] = w }
+
+func (vec *Vector4[T]) Set(x, y, z, w T) {
+	(*vec)[0], (*vec)[1], (*vec)[2], (*vec)[3] = x, y, z, w
+}
+
+func (vec *Vector4[T]) Copy(other Vector4[T]) {
+	(*vec)[0], (*vec)[1], (*vec)[2], (*vec)[3] = other[0], other[1], other[2], other[3]
+}
 
 func (vec Vector4[T]) Vec3() Vector3[T] {
 	if vec[3] == 0 {
