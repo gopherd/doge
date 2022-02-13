@@ -57,15 +57,11 @@ type BasicDispatcher struct {
 	handlers map[Type][]container.Pair[ID, Listener]
 }
 
-// NewDispatcher creates a BasicDispatcher
-func NewDispatcher() *BasicDispatcher {
-	return &BasicDispatcher{
-		handlers: make(map[Type][]container.Pair[ID, Listener]),
-	}
-}
-
 // AddEventListener implements Dispatcher AddEventListener method
 func (dispatcher *BasicDispatcher) AddEventListener(eventType Type, handler Listener) ID {
+	if dispatcher.handlers == nil {
+		dispatcher.handlers = make(map[Type][]container.Pair[ID, Listener])
+	}
 	dispatcher.nextId++
 	id := dispatcher.nextId
 	dispatcher.handlers[eventType] = append(dispatcher.handlers[eventType], container.MakePair(id, handler))
@@ -74,6 +70,9 @@ func (dispatcher *BasicDispatcher) AddEventListener(eventType Type, handler List
 
 // HasEventListener implements Dispatcher HasEventListener method
 func (dispatcher *BasicDispatcher) HasEventListener(eventType Type, id ID) bool {
+	if dispatcher.handlers == nil {
+		return false
+	}
 	if handlers, ok := dispatcher.handlers[eventType]; ok {
 		for i := range handlers {
 			if handlers[i].First == id {
@@ -86,6 +85,9 @@ func (dispatcher *BasicDispatcher) HasEventListener(eventType Type, id ID) bool 
 
 // RemoveEventListener implements Dispatcher RemoveEventListener method
 func (dispatcher *BasicDispatcher) RemoveEventListener(eventType Type, id ID) bool {
+	if dispatcher.handlers == nil {
+		return false
+	}
 	if handlers, ok := dispatcher.handlers[eventType]; ok {
 		for i := range handlers {
 			if handlers[i].First == id {
@@ -102,6 +104,9 @@ func (dispatcher *BasicDispatcher) RemoveEventListener(eventType Type, id ID) bo
 
 // DispatchEvent implements Dispatcher DispatchEvent method
 func (dispatcher *BasicDispatcher) DispatchEvent(event Event) bool {
+	if dispatcher.handlers == nil {
+		return false
+	}
 	handlers, ok := dispatcher.handlers[event.Type()]
 	if !ok || len(handlers) == 0 {
 		return false
