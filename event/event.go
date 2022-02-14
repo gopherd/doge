@@ -39,12 +39,12 @@ func (h listenerFunc[T, E]) Handle(event Event[T]) {
 
 // Dispatcher represents an event dispatcher
 type Dispatcher[T comparable] interface {
-	// AddEventListener registers a Listener and returns the listener ID
-	AddEventListener(listener Listener[T]) (id int)
+	// AddEventListener registers a Listener
+	AddEventListener(listener Listener[T])
 	// HasEventListener reports whether the Dispatcher has specified listener
-	HasEventListener(id int) bool
+	HasEventListener(listener Listener[T]) bool
 	// RemoveEventListener removes specified listener
-	RemoveEventListener(id int) bool
+	RemoveEventListener(listener Listener[T]) bool
 	// DispatchEvent dispatchs event
 	DispatchEvent(event Event[T]) bool
 }
