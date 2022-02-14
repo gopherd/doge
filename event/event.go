@@ -37,14 +37,76 @@ func (h listenerFunc[T, E]) Handle(event Event[T]) {
 	}
 }
 
-// Dispatcher represents an event dispatcher
-type Dispatcher[T comparable] interface {
-	// AddEventListener registers a Listener
-	AddEventListener(listener Listener[T])
-	// HasEventListener reports whether the Dispatcher has specified listener
-	HasEventListener(listener Listener[T]) bool
-	// RemoveEventListener removes specified listener
-	RemoveEventListener(listener Listener[T]) bool
-	// DispatchEvent dispatchs event
-	DispatchEvent(event Event[T]) bool
+// Dispatcher manages event listeners
+type Dispatcher[T comparable] struct {
+	listeners map[T][]Listener[T]
+}
+
+// AddEventListener registers a Listener
+func (dispatcher *Dispatcher[T]) AddEventListener(listener Listener[T]) {
+	if dispatcher.listeners == nil {
+		dispatcher.listeners = make(map[T][]Listener[T])
+	}
+	var eventType = listener.EventType()
+	var listeners = dispatcher.listeners[eventType]
+	for i := range listeners {
+		if listeners[i] == listener {
+			return
+		}
+	}
+	dispatcher.listeners[eventType] = append(listeners, listener)
+}
+
+// HasEventListener reports whether the Dispatcher has specified listener
+func (dispatcher *Dispatcher[T]) HasEventListener(listener Listener[T]) bool {
+	if dispatcher.listeners == nil {
+		return false
+	}
+	var listeners, ok = dispatcher.listeners[listener.EventType()]
+	if !ok {
+		return false
+	}
+	for i := range listeners {
+		if listeners[i] == listener {
+			return true
+		}
+	}
+	return false
+}
+
+// RemoveEventListener removes specified listener
+func (dispatcher *Dispatcher[T]) RemoveEventListener(listener Listener[T]) bool {
+	if dispatcher.listeners == nil {
+		return false
+	}
+	var eventType = listener.EventType()
+	var listeners, ok = dispatcher.listeners[eventType]
+	if !ok {
+		return false
+	}
+	for i := range listeners {
+		if listeners[i] == listener {
+			var n = len(listeners)
+			copy(listeners[i:n-1], listeners[i+1:])
+			listeners[n-1] = nil
+			dispatcher.listeners[eventType] = listeners
+			return true
+		}
+	}
+	return false
+}
+
+// DispatchEvent dispatchs event
+func (dispatcher *Dispatcher[T]) DispatchEvent(event Event[T]) bool {
+	if dispatcher.listeners == nil {
+		return false
+	}
+	listeners, ok := dispatcher.listeners[event.Type()]
+	if !ok || len(listeners) == 0 {
+		return false
+	}
+	for i := range listeners {
+		listeners[i].Handle(event)
+	}
+	return true
 }

@@ -1,11 +1,10 @@
-package dispatcher_test
+package event_test
 
 import (
 	"reflect"
 	"testing"
 
 	"github.com/gopherd/doge/event"
-	"github.com/gopherd/doge/event/dispatcher"
 )
 
 type testStringEvent struct {
@@ -17,7 +16,7 @@ func (e testStringEvent) Type() string {
 
 func TestDispatchEvent(t *testing.T) {
 	var fired bool
-	var dispatcher dispatcher.Dispatcher[string]
+	var dispatcher event.Dispatcher[string]
 	dispatcher.AddEventListener(event.Listen("test", func(e testStringEvent) {
 		fired = true
 	}))
@@ -29,7 +28,7 @@ func TestDispatchEvent(t *testing.T) {
 
 func TestDispatchEventPointer(t *testing.T) {
 	var fired bool
-	var dispatcher dispatcher.Dispatcher[string]
+	var dispatcher event.Dispatcher[string]
 	dispatcher.AddEventListener(event.Listen("test", func(e *testStringEvent) {
 		fired = true
 	}))
@@ -50,7 +49,7 @@ func (e testEvent) Type() reflect.Type {
 
 func TestDispatchReflectEvent(t *testing.T) {
 	var fired bool
-	var dispatcher dispatcher.Dispatcher[reflect.Type]
+	var dispatcher event.Dispatcher[reflect.Type]
 	dispatcher.AddEventListener(event.Listen(testEventType, func(e *testEvent) {
 		fired = true
 	}))
@@ -69,7 +68,7 @@ func (e testIntEvent) Type() int {
 
 func TestDispatchIntEvent(t *testing.T) {
 	var fired bool
-	var dispatcher dispatcher.Dispatcher[int]
+	var dispatcher event.Dispatcher[int]
 	dispatcher.AddEventListener(event.Listen(1, func(e testIntEvent) {
 		fired = true
 	}))
