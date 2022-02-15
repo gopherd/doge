@@ -70,3 +70,9 @@ func (vec Vector3[T]) Hadamard(other Vector3[T]) Vector3[T] {
 func (vec Vector3[T]) Normalize() Vector3[T] {
 	return vec.Div(vec.Length())
 }
+
+func (vec Vector3[T]) Cross(other Vector3[T]) Vector3[T] {
+	var x1, y1, z1 = vec.X(), vec.Y(), vec.Z()
+	var x2, y2, z2 = other.X(), other.Y(), other.Z()
+	return Vec3(y1*z2-y2*z1, x2*z1-x1*z2, x1*y2-x2*y1)
+}
