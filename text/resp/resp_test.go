@@ -135,7 +135,7 @@ func Test_Reset(t *testing.T) {
 		v.raw.Reset()
 		v.reset(c.typ, []byte(c.value), c.isNil)
 		if !equalsValue(c.expect, v) {
-			t.Errorf("case %d error: %s vs %s", i, c.expect.QuotedString(), v.QuotedString())
+			t.Errorf("case %d error: %q vs %q", i, c.expect.String(), v.String())
 		}
 	}
 
@@ -154,15 +154,15 @@ func Test_Reset(t *testing.T) {
 		},
 	} {
 		if c.isNil {
-			v.FromNil()
+			v.SetNil()
 		} else {
-			v.FromArray(len(c.array))
+			v.SetArray(len(c.array))
 			for _, x := range c.array {
 				v.Append(Type(x[0]), x[1:])
 			}
 		}
 		if !equalsValue(c.expect, v) {
-			t.Errorf("case %d error: %s vs %s", i, c.expect.QuotedString(), v.QuotedString())
+			t.Errorf("case %d error: %q vs %q", i, c.expect.String(), v.String())
 		}
 	}
 }
