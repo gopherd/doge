@@ -18,16 +18,16 @@ func OrNew[T comparable](a T, new func() T) T {
 	return a
 }
 
-// Conditional returns yes ? a : b
-func Conditional[T any](yes bool, a, b T) T {
+// If returns yes ? a : b
+func If[T any](yes bool, a, b T) T {
 	if yes {
 		return a
 	}
 	return b
 }
 
-// ConditionalNew returns yes ? a() : b()
-func ConditionalNew[T any](yes bool, a, b func() T) T {
+// IfNew returns yes ? a() : b()
+func IfNew[T any](yes bool, a, b func() T) T {
 	if yes {
 		return a()
 	}
