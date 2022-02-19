@@ -139,9 +139,9 @@ func (m *OrderedMap[K, V]) Last() Iterator[K, V] {
 	return m.root.biggest()
 }
 
-// Print pretty prints the map by specified options
-func (m *OrderedMap[K, V]) Print(options container.PrintOptions) string {
-	return container.PrintNode[*node[K, V]](m.root, options)
+// Stringify pretty stringify the map by specified options
+func (m *OrderedMap[K, V]) Stringify(options container.StringifyOptions) string {
+	return container.Stringify[*node[K, V]](m.root, options)
 }
 
 // String returns content of the map as a plain string

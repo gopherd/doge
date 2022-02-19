@@ -27,8 +27,8 @@ type Node[T comparable] interface {
 	GetChildByIndex(i int) T // GetChildByIndex gets child by index
 }
 
-// PrintOptions represents a options for printing Node
-type PrintOptions struct {
+// StringifyOptions represents a options for stringify Node
+type StringifyOptions struct {
 	Prefix         string
 	IconParent     string // default "│  "
 	IconSpace      string // default "   "
@@ -36,7 +36,7 @@ type PrintOptions struct {
 	IconLastBranch string // default "└──"
 }
 
-func (options *PrintOptions) Fix() {
+func (options *StringifyOptions) Fix() {
 	options.IconParent = operator.Or(options.IconParent, "│  ")
 	if options.IconBranch == "" {
 		options.IconBranch = "├──"
@@ -52,11 +52,11 @@ func (options *PrintOptions) Fix() {
 	options.IconSpace += " "
 }
 
-// PrintNode recursively prints node
-func PrintNode[T comparable](node Node[T], options PrintOptions) string {
+// Stringify converts node to string
+func Stringify[T comparable](node Node[T], options StringifyOptions) string {
 	options.Fix()
-	if printer, ok := node.(interface{ Print(PrintOptions) string }); ok {
-		return printer.Print(options)
+	if stringer, ok := node.(interface{ Stringify(StringifyOptions) string }); ok {
+		return stringer.Stringify(options)
 	}
 	var (
 		buf         bytes.Buffer
@@ -76,7 +76,7 @@ func recursivelyPrintNode[T comparable](
 	prefix string,
 	depth int,
 	isLast bool,
-	options PrintOptions,
+	options StringifyOptions,
 ) {
 	var node, ok = x.(Node[T])
 	if !ok {

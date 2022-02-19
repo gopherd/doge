@@ -13,15 +13,15 @@ import (
 
 func ExampleOrderedMap() {
 	m := orderedmap.New[int, int]()
-	fmt.Print("empty:\n" + m.Print(container.PrintOptions{}))
+	fmt.Print("empty:\n" + m.Stringify(container.StringifyOptions{}))
 
 	m.Insert(1, 2)
 	m.Insert(2, 4)
 	m.Insert(4, 8)
 	m.Insert(8, 16)
 
-	fmt.Print("default:\n" + m.Print(container.PrintOptions{}))
-	fmt.Print("custom:\n" + m.Print(container.PrintOptions{
+	fmt.Print("default:\n" + m.Stringify(container.StringifyOptions{}))
+	fmt.Print("custom:\n" + m.Stringify(container.StringifyOptions{
 		Prefix:         "... ",
 		IconParent:     "|  ",
 		IconBranch:     "|--",
