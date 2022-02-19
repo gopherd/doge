@@ -2,106 +2,132 @@ package functional
 
 import (
 	"math"
-	"math/rand"
+
+	"github.com/gopherd/doge/constraints"
+	"github.com/gopherd/doge/math/mathutil"
 )
 
-type UnaryFn func(float64) float64
+type UnaryFn[T constraints.Field] func(T) T
 
-func (f UnaryFn) Add(f2 UnaryFn) UnaryFn {
-	return func(x float64) float64 {
+func (f UnaryFn[T]) Add(f2 UnaryFn[T]) UnaryFn[T] {
+	return func(x T) T {
 		return f(x) + f2(x)
 	}
 }
 
-func (f UnaryFn) Sub(f2 UnaryFn) UnaryFn {
-	return func(x float64) float64 {
+func (f UnaryFn[T]) Sub(f2 UnaryFn[T]) UnaryFn[T] {
+	return func(x T) T {
 		return f(x) - f2(x)
 	}
 }
 
-func (f UnaryFn) Mul(f2 UnaryFn) UnaryFn {
-	return func(x float64) float64 {
+func (f UnaryFn[T]) Mul(f2 UnaryFn[T]) UnaryFn[T] {
+	return func(x T) T {
 		return f(x) * f2(x)
 	}
 }
 
-func (f UnaryFn) Div(f2 UnaryFn) UnaryFn {
-	return func(x float64) float64 {
+func (f UnaryFn[T]) Div(f2 UnaryFn[T]) UnaryFn[T] {
+	return func(x T) T {
 		return f(x) / f2(x)
 	}
 }
 
-func Shuffle(vec []int) {
-	for i := len(vec) - 1; i >= 0; i-- {
-		index := rand.Intn(i + 1)
-		vec[i], vec[index] = vec[index], vec[i]
-	}
+func Constant[T constraints.Field](c T) UnaryFn[T] {
+	return func(x T) T { return c }
 }
 
-func Constant(c float64) UnaryFn { return func(x float64) float64 { return c } }
-func KSigmoid(k float64) UnaryFn { return func(x float64) float64 { return Sigmoid(k * x) } }
-func KSigmoidPrime(k float64) UnaryFn {
-	return func(x float64) float64 { return SigmoidPrime(k*x) * k }
+func KSigmoid[T constraints.Float](k T) UnaryFn[T] {
+	return func(x T) T { return Sigmoid(k * x) }
 }
 
-func Scale(k float64) UnaryFn     { return func(x float64) float64 { return k * x } }
-func Offset(b float64) UnaryFn    { return func(x float64) float64 { return x + b } }
-func Affine(k, b float64) UnaryFn { return func(x float64) float64 { return k*x + b } }
+func KSigmoidPrime[T constraints.Float](k T) UnaryFn[T] {
+	return func(x T) T { return SigmoidPrime(k*x) * k }
+}
 
-func Power(p float64) UnaryFn { return func(x float64) float64 { return math.Pow(x, p) } }
+func Scale[T constraints.Field](k T) UnaryFn[T] {
+	return func(x T) T { return k * x }
+}
 
-var (
-	ConstantOne UnaryFn = func(x float64) float64 { return 1 }
-	Identity    UnaryFn = func(x float64) float64 { return x }
-	Square      UnaryFn = func(x float64) float64 { return x * x }
-	Abs         UnaryFn = func(x float64) float64 {
-		return float64(math.Abs(float64(x)))
-	}
-	Sign UnaryFn = func(x float64) float64 {
-		if x > 0 {
-			return 1
-		}
-		return -1
-	}
-	Sigmoid UnaryFn = func(x float64) float64 {
-		return float64(1.0 / (1.0 + math.Exp(-float64(x))))
-	}
-	SigmoidPrime UnaryFn = func(x float64) float64 {
-		x = Sigmoid(x)
-		return x * (1 - x)
-	}
-)
+func Offset[T constraints.Field](b T) UnaryFn[T] {
+	return func(x T) T { return x + b }
+}
 
-type BinaryFn func(x, y float64) float64
+func Affine[T constraints.Field](k, b T) UnaryFn[T] {
+	return func(x T) T { return k*x + b }
+}
 
-func (f BinaryFn) Add(f2 BinaryFn) BinaryFn {
-	return func(x, y float64) float64 {
+func Power[T constraints.Float](p T) UnaryFn[T] {
+	return func(x T) T { return T(math.Pow(float64(x), float64(p))) }
+}
+
+func Zero[T constraints.Field](x T) T {
+	return 0
+}
+
+func One[T constraints.Field](x T) T {
+	return 1
+}
+
+func Identity[T constraints.Field](x T) T {
+	return x
+}
+
+func Square[T constraints.Field](x T) T {
+	return x * x
+}
+
+func Abs[T constraints.Float](x T) T {
+	return mathutil.Abs(x)
+}
+
+func Sign[T constraints.Float](x T) T {
+	if x == 0 {
+		return 0
+	}
+	if x > 0 {
+		return 1
+	}
+	return -1
+}
+
+func Sigmoid[T constraints.Float](x T) T {
+	return T(1.0 / (1.0 + math.Exp(-float64(x))))
+}
+
+func SigmoidPrime[T constraints.Float](x T) T {
+	x = Sigmoid(x)
+	return x * (1 - x)
+}
+
+type BinaryFn[T constraints.Field] func(x, y T) T
+
+func (f BinaryFn[T]) Add(f2 BinaryFn[T]) BinaryFn[T] {
+	return func(x, y T) T {
 		return f(x, y) + f2(x, y)
 	}
 }
 
-func (f BinaryFn) Sub(f2 BinaryFn) BinaryFn {
-	return func(x, y float64) float64 {
+func (f BinaryFn[T]) Sub(f2 BinaryFn[T]) BinaryFn[T] {
+	return func(x, y T) T {
 		return f(x, y) - f2(x, y)
 	}
 }
 
-func (f BinaryFn) Mul(f2 BinaryFn) BinaryFn {
-	return func(x, y float64) float64 {
+func (f BinaryFn[T]) Mul(f2 BinaryFn[T]) BinaryFn[T] {
+	return func(x, y T) T {
 		return f(x, y) * f2(x, y)
 	}
 }
 
-func (f BinaryFn) Div(f2 BinaryFn) BinaryFn {
-	return func(x, y float64) float64 {
+func (f BinaryFn[T]) Div(f2 BinaryFn[T]) BinaryFn[T] {
+	return func(x, y T) T {
 		return f(x, y) / f2(x, y)
 	}
 }
 
-var (
-	Add BinaryFn = func(x, y float64) float64 { return x + y }
-	Sub BinaryFn = func(x, y float64) float64 { return x - y }
-	Mul BinaryFn = func(x, y float64) float64 { return x * y }
-	Div BinaryFn = func(x, y float64) float64 { return x / y }
-	Pow BinaryFn = math.Pow
-)
+func Add[T constraints.Field](x, y T) T { return x + y }
+func Sub[T constraints.Field](x, y T) T { return x - y }
+func Mul[T constraints.Field](x, y T) T { return x * y }
+func Div[T constraints.Field](x, y T) T { return x / y }
+func Pow[T constraints.Float](x, y T) T { return T(math.Pow(float64(x), float64(y))) }

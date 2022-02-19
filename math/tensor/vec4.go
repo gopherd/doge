@@ -1,16 +1,21 @@
 package tensor
 
 import (
+	"fmt"
 	"math"
 
-	"github.com/gopherd/doge/math/mathutil"
+	"github.com/gopherd/doge/constraints"
 )
 
 // Vector4 implements 4d vector
-type Vector4[T mathutil.Real] [4]T
+type Vector4[T constraints.SignedReal] [4]T
 
-func Vec4[T mathutil.Real](x, y, z, w T) Vector4[T] {
+func Vec4[T constraints.SignedReal](x, y, z, w T) Vector4[T] {
 	return Vector4[T]{x, y, z, w}
+}
+
+func (vec Vector4[T]) String() string {
+	return fmt.Sprintf("(%v,%v,%v,%v)", vec[0], vec[1], vec[2], vec[3])
 }
 
 func (vec Vector4[T]) X() T { return vec[0] }

@@ -1,16 +1,21 @@
 package tensor
 
 import (
+	"fmt"
 	"math"
 
-	"github.com/gopherd/doge/math/mathutil"
+	"github.com/gopherd/doge/constraints"
 )
 
 // Vector2 implements 2d vector
-type Vector2[T mathutil.Real] [2]T
+type Vector2[T constraints.SignedReal] [2]T
 
-func Vec2[T mathutil.Real](x, y T) Vector2[T] {
+func Vec2[T constraints.SignedReal](x, y T) Vector2[T] {
 	return Vector2[T]{x, y}
+}
+
+func (vec Vector2[T]) String() string {
+	return fmt.Sprintf("(%v,%v)", vec[0], vec[1])
 }
 
 func (vec Vector2[T]) X() T { return vec[0] }

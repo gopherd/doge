@@ -1,4 +1,4 @@
-package rbtree_test
+package orderedmap_test
 
 import (
 	"fmt"
@@ -7,46 +7,47 @@ import (
 	"testing"
 
 	"github.com/gopherd/doge/container"
-	. "github.com/gopherd/doge/container/rbtree"
+	"github.com/gopherd/doge/container/orderedmap"
+	"github.com/gopherd/doge/operator"
 )
 
-func ExampleRBTree() {
-	tree := New[int, int](Greater[int])
-	fmt.Print("empty:\n" + tree.Format(container.TreeFormatter{}))
+func ExampleOrderedMap() {
+	m := orderedmap.New[int, int]()
+	fmt.Print("empty:\n" + m.Print(container.PrintOptions{}))
 
-	tree.Insert(1, 2)
-	tree.Insert(2, 4)
-	tree.Insert(4, 8)
-	tree.Insert(8, 16)
+	m.Insert(1, 2)
+	m.Insert(2, 4)
+	m.Insert(4, 8)
+	m.Insert(8, 16)
 
-	fmt.Print("default:\n" + tree.Format(container.TreeFormatter{}))
-	fmt.Print("custom:\n" + tree.Format(container.TreeFormatter{
+	fmt.Print("default:\n" + m.Print(container.PrintOptions{}))
+	fmt.Print("custom:\n" + m.Print(container.PrintOptions{
 		Prefix:         "... ",
 		IconParent:     "|  ",
 		IconBranch:     "|--",
 		IconLastBranch: "+--",
 	}))
-	fmt.Println("plain:\n" + tree.String())
+	fmt.Println("plain:\n" + m.String())
 
 	// Output:
 	// empty:
 	// <nil>
 	// default:
 	// 2:4
-	// ├── 4:8
-	// │   └── 8:16
-	// └── 1:2
+	// ├── 1:2
+	// └── 4:8
+	//     └── 8:16
 	// custom:
 	// ... 2:4
-	// ... |-- 4:8
-	// ... |   +-- 8:16
-	// ... +-- 1:2
+	// ... |-- 1:2
+	// ... +-- 4:8
+	// ...     +-- 8:16
 	// plain:
-	// [8:16 4:8 2:4 1:2]
+	// [1:2 2:4 4:8 8:16]
 }
 
-func TestRBTree(t *testing.T) {
-	tree := New[int, string](func(k1, k2 int) bool { return k1 > k2 })
+func TestOrderedMap(t *testing.T) {
+	m := orderedmap.NewFunc[int, string](operator.Greater[int])
 	hashmap := make(map[int]string)
 
 	rand.Seed(100)
@@ -61,9 +62,9 @@ func TestRBTree(t *testing.T) {
 	add := func(k int, v string) {
 		_, found := hashmap[k]
 		hashmap[k] = v
-		_, ok := tree.Insert(k, v)
+		_, ok := m.Insert(k, v)
 		if ok != !found {
-			t.Fatalf("tree.Set: returned value want %v, but got %v", !found, found)
+			t.Fatalf("map.Set: returned value want %v, but got %v", !found, found)
 		}
 	}
 	_ = add
@@ -71,9 +72,9 @@ func TestRBTree(t *testing.T) {
 	remove := func(k int) {
 		_, found := hashmap[k]
 		delete(hashmap, k)
-		ok := tree.Remove(k)
+		ok := m.Remove(k)
 		if ok != found {
-			t.Fatalf("tree.Remove: want %v, but got %v", found, ok)
+			t.Fatalf("map.Remove: want %v, but got %v", found, ok)
 		}
 	}
 	_ = remove
@@ -91,13 +92,13 @@ func TestRBTree(t *testing.T) {
 			value = makeValue((keys - 1 - j) * (i + 1))
 			add(key, value)
 		}
-		checkTree("add", t, tree, hashmap)
+		checkTree("add", t, m, hashmap)
 	}
 	for j := 0; j < keys; j++ {
 		key := makeKey(j)
 		remove(key)
 	}
-	checkTree("remove", t, tree, hashmap)
+	checkTree("remove", t, m, hashmap)
 
 	for i := 0; i < n; i++ {
 		k := makeKey(rand.Intn(keys))
@@ -110,16 +111,16 @@ func TestRBTree(t *testing.T) {
 			op = "remove"
 			remove(k)
 		}
-		checkTree(op, t, tree, hashmap)
+		checkTree(op, t, m, hashmap)
 	}
 }
 
-func checkTree[K comparable, V comparable](op string, t *testing.T, tree *RBTree[K, V], hashmap map[K]V) {
-	if tree.Len() != len(hashmap) {
-		t.Fatalf("[%s] len mismacthed: want %d, got %d", op, len(hashmap), tree.Len())
+func checkTree[K comparable, V comparable](op string, t *testing.T, m *orderedmap.OrderedMap[K, V], hashmap map[K]V) {
+	if m.Len() != len(hashmap) {
+		t.Fatalf("[%s] len mismacthed: want %d, got %d", op, len(hashmap), m.Len())
 	}
 	for k, v := range hashmap {
-		node := tree.Find(k)
+		node := m.Find(k)
 		if node == nil {
 			t.Fatalf("[%s] key %v not found", op, k)
 		}

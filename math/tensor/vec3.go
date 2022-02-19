@@ -1,16 +1,21 @@
 package tensor
 
 import (
+	"fmt"
 	"math"
 
-	"github.com/gopherd/doge/math/mathutil"
+	"github.com/gopherd/doge/constraints"
 )
 
 // Vector3 implements 3d vector
-type Vector3[T mathutil.Real] [3]T
+type Vector3[T constraints.SignedReal] [3]T
 
-func Vec3[T mathutil.Real](x, y, z T) Vector3[T] {
+func Vec3[T constraints.SignedReal](x, y, z T) Vector3[T] {
 	return Vector3[T]{x, y, z}
+}
+
+func (vec Vector3[T]) String() string {
+	return fmt.Sprintf("(%v,%v,%v)", vec[0], vec[1], vec[2])
 }
 
 func (vec Vector3[T]) X() T { return vec[0] }

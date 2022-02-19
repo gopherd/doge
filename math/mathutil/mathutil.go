@@ -1,67 +1,40 @@
 package mathutil
 
 import (
-	"constraints"
 	"math"
+
+	"github.com/gopherd/doge/constraints"
 )
 
-type Real interface {
-	constraints.Float | constraints.Signed
-}
-
-func MinInt[T constraints.Integer](x, y T) T {
+func Min[T constraints.Ordered](x, y T) T {
 	if x < y {
 		return x
 	}
 	return y
 }
 
-func MaxInt[T constraints.Integer](x, y T) T {
+func Max[T constraints.Ordered](x, y T) T {
 	if x > y {
 		return x
 	}
 	return y
 }
 
-func MinmaxInt[T constraints.Integer](x, y T) (min, max T) {
-	if x <= y {
+func Minmax[T constraints.Float](x, y T) (min, max T) {
+	if x < y {
 		return x, y
 	}
 	return y, x
 }
 
-func AbsInt[T constraints.Integer](x T) T {
-	if x >= 0 {
-		return x
+func Abs[T constraints.SignedReal](x T) T {
+	if x < 0 {
+		return -x
 	}
-	return -x
+	return x
 }
 
-func ClampInt[T constraints.Integer](value, min, max T) T {
-	return MaxInt(min, MinInt(max, value))
-}
-
-func EuclideanModuloInt[T constraints.Signed](x, y T) T {
-	return ((x % y) + y) % y
-}
-
-func Min[T constraints.Float](x, y T) T {
-	return T(math.Min(float64(x), float64(y)))
-}
-
-func Max[T constraints.Float](x, y T) T {
-	return T(math.Max(float64(x), float64(y)))
-}
-
-func Minmax[T constraints.Float](x, y T) (min, max T) {
-	return T(math.Min(float64(x), float64(y))), T(math.Max(float64(x), float64(y)))
-}
-
-func Abs[T constraints.Float](x T) T {
-	return T(math.Abs(float64(x)))
-}
-
-func Clamp[T constraints.Float](value, min, max T) T {
+func Clamp[T constraints.Ordered](value, min, max T) T {
 	return Max(min, Min(max, value))
 }
 
@@ -71,12 +44,12 @@ func EuclideanModulo[T constraints.Float](x, y T) T {
 }
 
 // MapLinear mapping from range <a1, a2> to range <b1, b2>
-func MapLinear[T constraints.Float](x, a1, a2, b1, b2 T) T {
+func MapLinear[T constraints.Field](x, a1, a2, b1, b2 T) T {
 	return b1 + (x-a1)*(b2-b1)/(a2-a1)
 }
 
 // https://www.gamedev.net/tutorials/programming/general-and-gameplay-programming/inverse-lerp-a-super-useful-yet-often-overlooked-function-r5230/
-func InverseLerp[T constraints.Float](x, y, value T) T {
+func InverseLerp[T constraints.Field](x, y, value T) T {
 	if x == y {
 		return 0
 	}
@@ -84,7 +57,7 @@ func InverseLerp[T constraints.Float](x, y, value T) T {
 }
 
 // https://en.wikipedia.org/wiki/Linear_interpolation
-func Lerp[T constraints.Float](x, y, t T) T {
+func Lerp[T constraints.Field](x, y, t T) T {
 	return (1-t)*x + t*y
 }
 

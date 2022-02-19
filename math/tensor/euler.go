@@ -3,13 +3,54 @@ package tensor
 import (
 	"constraints"
 	"math"
+	"strings"
 
 	"github.com/gopherd/doge/math/mathutil"
 )
 
+type EulerRotationOrder int8
+
+const (
+	EulerRotationOrderXYZ EulerRotationOrder = iota
+	EulerRotationOrderXZY
+	EulerRotationOrderYXZ
+	EulerRotationOrderYZX
+	EulerRotationOrderZXY
+	EulerRotationOrderZYX
+)
+
+func (order EulerRotationOrder) String() string {
+	switch order {
+	case EulerRotationOrderXYZ:
+		return "XYZ"
+	case EulerRotationOrderXZY:
+		return "XZY"
+	case EulerRotationOrderYXZ:
+		return "YXZ"
+	case EulerRotationOrderYZX:
+		return "YZX"
+	case EulerRotationOrderZXY:
+		return "ZXY"
+	case EulerRotationOrderZYX:
+		return "ZYX"
+	default:
+		return "UNK"
+	}
+}
+
 type Euler[T constraints.Float] struct {
 	Vector3[T]
-	Order string // XYZ, XZY, YXZ, YZX, ZXY, ZYX
+	Order EulerRotationOrder // XYZ, XZY, YXZ, YZX, ZXY, ZYX
+}
+
+func (euler Euler[T]) String() string {
+	var sb strings.Builder
+	sb.WriteString("{rotation:")
+	sb.WriteString(euler.Vector3.String())
+	sb.WriteString(",order:")
+	sb.WriteString(euler.Order.String())
+	sb.WriteByte('}')
+	return sb.String()
 }
 
 func (euler *Euler[T]) SetFromRotationMatrix(mat Matrix4[T]) *Euler[T] {
@@ -20,7 +61,7 @@ func (euler *Euler[T]) SetFromRotationMatrix(mat Matrix4[T]) *Euler[T] {
 	var m31, m32, m33 = float64(mat[2]), float64(mat[6]), float64(mat[10])
 	var x, y, z float64
 	switch euler.Order {
-	case "YXZ":
+	case EulerRotationOrderYXZ:
 		x = math.Asin(-mathutil.Clamp(m23, -1, 1))
 		if mathutil.Abs(m23) < one {
 			y = math.Atan2(m13, m33)
@@ -29,7 +70,7 @@ func (euler *Euler[T]) SetFromRotationMatrix(mat Matrix4[T]) *Euler[T] {
 			y = math.Atan2(-m31, m11)
 			z = 0
 		}
-	case "ZXY":
+	case EulerRotationOrderZXY:
 		x = math.Asin(mathutil.Clamp(m32, -1, 1))
 		if math.Abs(m32) < one {
 			y = math.Atan2(-m31, m33)
@@ -38,7 +79,7 @@ func (euler *Euler[T]) SetFromRotationMatrix(mat Matrix4[T]) *Euler[T] {
 			y = 0
 			z = math.Atan2(m21, m11)
 		}
-	case "ZYX":
+	case EulerRotationOrderZYX:
 		y = math.Asin(-mathutil.Clamp(m31, -1, 1))
 		if math.Abs(m31) < one {
 			x = math.Atan2(m32, m33)
@@ -47,7 +88,7 @@ func (euler *Euler[T]) SetFromRotationMatrix(mat Matrix4[T]) *Euler[T] {
 			x = 0
 			z = math.Atan2(-m12, m22)
 		}
-	case "YZX":
+	case EulerRotationOrderYZX:
 		z = math.Asin(mathutil.Clamp(m21, -1, 1))
 		if math.Abs(m21) < one {
 			x = math.Atan2(-m23, m22)
@@ -56,7 +97,7 @@ func (euler *Euler[T]) SetFromRotationMatrix(mat Matrix4[T]) *Euler[T] {
 			x = 0
 			y = math.Atan2(m13, m33)
 		}
-	case "XZY":
+	case EulerRotationOrderXZY:
 		z = math.Asin(-mathutil.Clamp(m12, -1, 1))
 		if math.Abs(m12) < one {
 			x = math.Atan2(m32, m22)

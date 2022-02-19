@@ -1,19 +1,42 @@
 package tensor
 
 import (
+	"bytes"
+	"fmt"
 	"math"
 
-	"github.com/gopherd/doge/math/mathutil"
+	"github.com/gopherd/doge/constraints"
 )
 
-type Matrix3[T mathutil.Real] [3 * 3]T
+type Matrix3[T constraints.SignedReal] [3 * 3]T
 
-func One3x3[T mathutil.Real]() Matrix3[T] {
+func One3x3[T constraints.SignedReal]() Matrix3[T] {
 	return Matrix3[T]{
 		1, 0, 0,
 		0, 1, 0,
 		0, 0, 1,
 	}
+}
+
+func (mat Matrix3[T]) String() string {
+	const dim = 3
+	var buf bytes.Buffer
+	buf.WriteByte('{')
+	for i := 0; i < dim; i++ {
+		if i > 0 {
+			buf.WriteByte(';')
+		}
+		buf.WriteByte('(')
+		for j := 0; j < dim; j++ {
+			if j > 0 {
+				buf.WriteByte(',')
+			}
+			fmt.Fprint(&buf, mat[i+j*dim])
+		}
+		buf.WriteByte(')')
+	}
+	buf.WriteByte('}')
+	return buf.String()
 }
 
 func (mat *Matrix3[T]) SetElements(n11, n12, n13, n21, n22, n23, n31, n32, n33 T) *Matrix3[T] {
@@ -32,21 +55,23 @@ func (mat Matrix3[T]) Sum() T {
 }
 
 func (mat Matrix3[T]) Transpose() Matrix3[T] {
-	for i := 0; i < 3; i++ {
-		for j := i + 1; j < 3; j++ {
-			mat[i+j*3], mat[j+i*3] = mat[j+i*3], mat[i+j*3]
+	const dim = 3
+	for i := 0; i < dim-1; i++ {
+		for j := i + 1; j < dim; j++ {
+			mat[i+j*dim], mat[j+i*dim] = mat[j+i*dim], mat[i+j*dim]
 		}
 	}
 	return mat
 }
 
 func (mat Matrix3[T]) Dot(other Matrix3[T]) Matrix3[T] {
+	const dim = 3
 	var result Matrix3[T]
-	for i := 0; i < 3; i++ {
-		for j := 0; j < 3; j++ {
-			index := i + j*3
-			for k := 0; k < 3; k++ {
-				result[index] += mat[i+k*3] * other[k+j*3]
+	for i := 0; i < dim; i++ {
+		for j := 0; j < dim; j++ {
+			index := i + j*dim
+			for k := 0; k < dim; k++ {
+				result[index] += mat[i+k*dim] * other[k+j*dim]
 			}
 		}
 	}
@@ -58,10 +83,11 @@ func (mat Matrix3[T]) DotVec2(vec Vector2[T]) Vector3[T] {
 }
 
 func (mat Matrix3[T]) DotVec3(vec Vector3[T]) Vector3[T] {
+	const dim = 3
 	var result Vector3[T]
-	for i := 0; i < 3; i++ {
-		for j := 0; j < 3; j++ {
-			result[i] += mat[i+j*3] * vec[j]
+	for i := 0; i < dim; i++ {
+		for j := 0; j < dim; j++ {
+			result[i] += mat[i+j*dim] * vec[j]
 		}
 	}
 	return result
