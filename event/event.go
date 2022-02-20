@@ -3,7 +3,7 @@ package event
 import (
 	"fmt"
 
-	"github.com/gopherd/doge/container"
+	"github.com/gopherd/doge/container/pair"
 )
 
 // Event is the interface that wraps the basic Type method.
@@ -43,8 +43,8 @@ func (h listenerFunc[T, E]) Handle(event Event[T]) {
 type Dispatcher[T comparable] struct {
 	nextid    int
 	ordered   bool
-	listeners map[T][]container.Pair[int, Listener[T]]
-	mapping   map[int]container.Pair[T, int]
+	listeners map[T][]pair.Pair[int, Listener[T]]
+	mapping   map[int]pair.Pair[T, int]
 }
 
 // Ordered reports whether the listeners fired by added order
@@ -60,16 +60,16 @@ func (dispatcher *Dispatcher[T]) SetOrdered(ordered bool) {
 // AddEventListener registers a Listener
 func (dispatcher *Dispatcher[T]) AddEventListener(listener Listener[T]) int {
 	if dispatcher.listeners == nil {
-		dispatcher.listeners = make(map[T][]container.Pair[int, Listener[T]])
-		dispatcher.mapping = make(map[int]container.Pair[T, int])
+		dispatcher.listeners = make(map[T][]pair.Pair[int, Listener[T]])
+		dispatcher.mapping = make(map[int]pair.Pair[T, int])
 	}
 	dispatcher.nextid++
 	var id = dispatcher.nextid
 	var eventType = listener.EventType()
 	var listeners = dispatcher.listeners[eventType]
 	var index = len(listeners)
-	dispatcher.listeners[eventType] = append(listeners, container.MakePair(id, listener))
-	dispatcher.mapping[id] = container.MakePair(eventType, index)
+	dispatcher.listeners[eventType] = append(listeners, pair.Make(id, listener))
+	dispatcher.mapping[id] = pair.Make(eventType, index)
 	return id
 }
 
@@ -98,11 +98,11 @@ func (dispatcher *Dispatcher[T]) RemoveEventListener(id int) bool {
 		if dispatcher.ordered {
 			copy(listeners[index.Second:last], listeners[index.Second+1:])
 			for i := index.Second; i < last; i++ {
-				dispatcher.mapping[listeners[i].First] = container.MakePair(eventType, i)
+				dispatcher.mapping[listeners[i].First] = pair.Make(eventType, i)
 			}
 		} else {
 			listeners[index.Second] = listeners[last]
-			dispatcher.mapping[listeners[index.Second].First] = container.MakePair(eventType, index.Second)
+			dispatcher.mapping[listeners[index.Second].First] = pair.Make(eventType, index.Second)
 		}
 	}
 	listeners[last].Second = nil
