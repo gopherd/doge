@@ -136,10 +136,10 @@ func (iter *SetIterator[K]) Key() K {
 	return (*rbtree.Node[K, empty])(iter).Key()
 }
 
-// setNode implements stringify.Node
+// setNode implements container.Node
 type setNode[K comparable] rbtree.Node[K, empty]
 
-// String implements stringify.Node String method
+// String implements container.Node String method
 func (node *setNode[K]) String() string {
 	if node == nil {
 		return "<nil>"
@@ -147,17 +147,17 @@ func (node *setNode[K]) String() string {
 	return fmt.Sprint((*rbtree.Node[K, empty])(node).Key())
 }
 
-// Parent implements stringify.Node Parent method
+// Parent implements container.Node Parent method
 func (node *setNode[K]) Parent() *setNode[K] {
 	return (*setNode[K])((*rbtree.Node[K, empty])(node).Parent())
 }
 
-// NumChild implements stringify.Node NumChild method
+// NumChild implements container.Node NumChild method
 func (node *setNode[K]) NumChild() int {
 	return (*rbtree.Node[K, empty])(node).NumChild()
 }
 
-// GetChildByIndex implements stringify.Node GetChildByIndex method
+// GetChildByIndex implements container.Node GetChildByIndex method
 func (node *setNode[K]) GetChildByIndex(i int) *setNode[K] {
 	return (*setNode[K])((*rbtree.Node[K, empty])(node).GetChildByIndex(i))
 }

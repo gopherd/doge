@@ -5,16 +5,9 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/gopherd/doge/container"
 	"github.com/gopherd/doge/operator"
 )
-
-// Node represents a generic printable node
-type Node[T comparable] interface {
-	String() string          // String returns node self information
-	Parent() T               // Parent returns parent node or nil
-	NumChild() int           // NumChild returns number of child
-	GetChildByIndex(i int) T // GetChildByIndex gets child by index
-}
 
 // Options represents a options for stringify Node
 type Options struct {
@@ -44,7 +37,7 @@ func (options *Options) fix() {
 }
 
 // Stringify converts node to string
-func Stringify[T comparable](node Node[T], options *Options) string {
+func Stringify[T comparable](node container.Node[T], options *Options) string {
 	if options == nil {
 		options = defaultOptions
 	} else {
@@ -75,7 +68,7 @@ func recursivelyPrintNode[T comparable](
 	isLast bool,
 	options *Options,
 ) {
-	var node, ok = x.(Node[T])
+	var node, ok = x.(container.Node[T])
 	if !ok {
 		return
 	}

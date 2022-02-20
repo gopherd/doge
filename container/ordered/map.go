@@ -160,10 +160,10 @@ func (iter *MapIterator[K, V]) SetValue(value V) {
 	(*rbtree.Node[K, V])(iter).SetValue(value)
 }
 
-// mapNode implements stringify.Node
+// mapNode implements container.Node
 type mapNode[K comparable, V any] rbtree.Node[K, V]
 
-// String implements stringify.Node String method
+// String implements container.Node String method
 func (node *mapNode[K, V]) String() string {
 	if node == nil {
 		return "<nil>"
@@ -172,17 +172,17 @@ func (node *mapNode[K, V]) String() string {
 	return fmt.Sprintf("%v:%v", rn.Key(), rn.Value())
 }
 
-// Parent implements stringify.Node Parent method
+// Parent implements container.Node Parent method
 func (node *mapNode[K, V]) Parent() *mapNode[K, V] {
 	return (*mapNode[K, V])((*rbtree.Node[K, V])(node).Parent())
 }
 
-// NumChild implements stringify.Node NumChild method
+// NumChild implements container.Node NumChild method
 func (node *mapNode[K, V]) NumChild() int {
 	return (*rbtree.Node[K, V])(node).NumChild()
 }
 
-// GetChildByIndex implements stringify.Node GetChildByIndex method
+// GetChildByIndex implements container.Node GetChildByIndex method
 func (node *mapNode[K, V]) GetChildByIndex(i int) *mapNode[K, V] {
 	return (*mapNode[K, V])((*rbtree.Node[K, V])(node).GetChildByIndex(i))
 }
