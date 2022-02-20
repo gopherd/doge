@@ -17,7 +17,7 @@ func editDistance(s, t string) (float32, int, int) {
 	var (
 		m int
 		n int
-		d [][]float32
+		d []float32
 	)
 	for _ = range s {
 		m++
@@ -25,26 +25,27 @@ func editDistance(s, t string) (float32, int, int) {
 	for _ = range t {
 		n++
 	}
-	d = make([][]float32, m+1)
+	d = make([]float32, (m+1)*(n+1))
 	for i := 0; i < m+1; i++ {
-		d[i] = make([]float32, n+1)
-		d[i][0] = float32(i)
+		d[i] = float32(i)
 	}
 	for j := 0; j < n+1; j++ {
-		d[0][j] = float32(j)
+		d[j*(m+1)] = float32(j)
 	}
 
 	for j, x := range t {
+		var jm = j * m
 		for i, y := range s {
+			var off = jm + i + j
 			if x == y {
-				d[i+1][j+1] = d[i][j]
+				d[off+m+2] = d[off]
 			} else {
-				d[i+1][j+1] = min(d[i][j+1], min(d[i+1][j], d[i][j])) + 1
+				d[off+m+2] = min(d[off+m+1], min(d[off+1], d[off])) + 1
 			}
 		}
 	}
 
-	return d[m][n], m, n
+	return d[m+n*(m+1)], m, n
 }
 
 func min(x, y float32) float32 {

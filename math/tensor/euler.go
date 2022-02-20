@@ -1,10 +1,10 @@
 package tensor
 
 import (
-	"constraints"
 	"math"
 	"strings"
 
+	"github.com/gopherd/doge/constraints"
 	"github.com/gopherd/doge/math/mathutil"
 )
 

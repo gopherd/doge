@@ -38,7 +38,7 @@ type SignedReal interface {
 
 // Real is a constraint that permits any real number type.
 type Real interface {
-	SignedReal | Unsigned
+	Integer | Float
 }
 
 // SignedNumber is a constraint that permits any signed integer, floating-point and complex-numeric type.
@@ -46,12 +46,12 @@ type SignedNumber interface {
 	SignedReal | Complex
 }
 
-// Field is a constraint that permits any number field type.
-type Field interface {
-	Float | Complex
-}
-
 // Number is a constraint that permits any number type.
 type Number interface {
 	Real | Complex
+}
+
+// Field is a constraint that permits any number field type.
+type Field interface {
+	Float | Complex
 }

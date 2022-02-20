@@ -1,189 +1,177 @@
-package orderedmap
+package rbtree
 
 import (
-	"bytes"
-	"constraints"
-	"fmt"
-
-	"github.com/gopherd/doge/container"
+	"github.com/gopherd/doge/constraints"
 	"github.com/gopherd/doge/operator"
 )
 
-type (
-	// Iterator represents an iterator of OrderedMap to iterate nodes
-	Iterator[K comparable, V any] interface {
-		// Prev returns previous iterator
-		Prev() Iterator[K, V]
-		// Next returns next node iterator
-		Next() Iterator[K, V]
-		// Key returns key of the node
-		Key() K
-		// Value returns value of the node
-		Value() V
-		// SetValue sets value of the node
-		SetValue(V)
+// LessFunc represents a comparation function which reports whether x "less" than y
+type LessFunc[T any] func(x, y T) bool
 
-		underlyingNode() *node[K, V]
-	}
-
-	// LessFunc represents a comparation function which reports whether x "less" than y
-	LessFunc[T any] func(x, y T) bool
-)
-
-// OrderedMap represents an ordered map
-type OrderedMap[K comparable, V any] struct {
+// RBTree represents an red-black tree
+type RBTree[K comparable, V any] struct {
 	size int
-	root *node[K, V]
+	root *Node[K, V]
 	less LessFunc[K]
 }
 
-// New creates a OrderedMap for ordered K
-func New[K constraints.Ordered, V any]() *OrderedMap[K, V] {
+// New creates an RBTree for ordered K
+func New[K constraints.Ordered, V any]() *RBTree[K, V] {
 	return NewFunc[K, V](operator.Less[K])
 }
 
-// NewFunc creates a OrderedMap with compare function
-func NewFunc[K comparable, V any](less LessFunc[K]) *OrderedMap[K, V] {
+// NewFunc creates an RBTree with custom less function
+func NewFunc[K comparable, V any](less LessFunc[K]) *RBTree[K, V] {
 	if less == nil {
-		panic("orderedmap: less function is nil")
+		panic("rbtree: less function is nil")
 	}
-	return &OrderedMap[K, V]{
+	return &RBTree[K, V]{
 		less: less,
 	}
 }
 
-// Len returns the number of elements
-func (m OrderedMap[K, V]) Len() int {
-	return m.size
+// Root returns root node
+func (tree RBTree[K, V]) Root() *Node[K, V] {
+	return tree.root
 }
 
-// Clear clears the container
-func (m *OrderedMap[K, V]) Clear() {
-	m.root = nil
-	m.size = 0
+// Len returns the number of elements
+func (tree RBTree[K, V]) Len() int {
+	return tree.size
+}
+
+// Clear clears the map
+func (tree *RBTree[K, V]) Clear() {
+	tree.root = nil
+	tree.size = 0
+}
+
+// Keys collects all keys of the tree as a slice
+func (tree *RBTree[K, V]) Keys() []K {
+	var size = tree.Len()
+	if size == 0 {
+		return nil
+	}
+	var keys = make([]K, 0, size)
+	var iter = tree.First()
+	for iter != nil {
+		keys = append(keys, iter.key)
+		iter = iter.Next()
+	}
+	return keys
+}
+
+// Values collects all values of the tree as a slice
+func (tree *RBTree[K, V]) Values() []V {
+	var size = tree.Len()
+	if size == 0 {
+		return nil
+	}
+	var values = make([]V, 0, size)
+	var iter = tree.First()
+	for iter != nil {
+		values = append(values, iter.value)
+		iter = iter.Next()
+	}
+	return values
 }
 
 // Find finds node by key, nil returned if the key not found.
-func (m *OrderedMap[K, V]) Find(key K) Iterator[K, V] {
-	return m.find(key)
+func (tree RBTree[K, V]) Find(key K) *Node[K, V] {
+	return tree.find(key)
+}
+
+// Contains reports whether the map contains the key
+func (tree RBTree[K, V]) Contains(key K) bool {
+	return tree.find(key) != nil
+}
+
+// Get retrives value by key
+func (tree RBTree[K, V]) Get(key K) V {
+	var node = tree.find(key)
+	if node != nil {
+		return node.value
+	}
+	var zero V
+	return zero
 }
 
 // Insert inserts a key-value pair, inserted node and true returned
 // if the key not found, otherwise, existed node and false returned.
-func (m *OrderedMap[K, V]) Insert(key K, value V) (Iterator[K, V], bool) {
-	node, ok := m.insert(key, value)
+func (tree *RBTree[K, V]) Insert(key K, value V) (*Node[K, V], bool) {
+	node, ok := tree.insert(key, value)
 	if ok {
-		m.size++
+		tree.size++
 	}
 	return node, ok
 }
 
 // Remove removes an element by key, false returned if the key not found.
-func (m *OrderedMap[K, V]) Remove(key K) bool {
-	node := m.find(key)
+func (tree *RBTree[K, V]) Remove(key K) bool {
+	node := tree.find(key)
 	if node == nil || node.null() {
 		return false
 	}
-	m.remove(node, true)
-	m.size--
+	tree.remove(node, true)
+	tree.size--
 	return true
 }
 
 // Erase deletes the node, false returned if the node not found.
-func (m *OrderedMap[K, V]) Erase(iter Iterator[K, V]) bool {
-	if iter == nil {
+func (tree *RBTree[K, V]) Erase(node *Node[K, V]) bool {
+	if node == nil {
 		return false
 	}
-	node := iter.underlyingNode()
-	if node == nil || node.null() {
+	if node.null() {
 		return false
 	}
-	ok := m.remove(node, false)
+	ok := tree.remove(node, false)
 	if ok {
-		m.size--
+		tree.size--
 	}
 	return ok
 }
 
 // First returns the first node.
-//
-// usage:
-//
-//	iter := m.First()
-//	for iter != nil {
-//		// hint: do something here using iter
-//		// hint: iter.Key(), iter.Value(), iter.SetValue(newValue)
-//		iter = iter.Next()
-//	}
-func (m *OrderedMap[K, V]) First() Iterator[K, V] {
-	if m.root == nil {
+func (tree RBTree[K, V]) First() *Node[K, V] {
+	if tree.root == nil {
 		return nil
 	}
-	return m.root.smallest()
+	return tree.root.smallest()
 }
 
 // Last returns the first node.
-//
-// usage:
-//
-//	iter := m.Last()
-//	for iter != nil {
-//		// hint: do something here using iter
-//		// hint: iter.Key(), iter.Value(), iter.SetValue(newValue)
-//		iter = iter.Prev()
-//	}
-func (m *OrderedMap[K, V]) Last() Iterator[K, V] {
-	if m.root == nil {
+func (tree RBTree[K, V]) Last() *Node[K, V] {
+	if tree.root == nil {
 		return nil
 	}
-	return m.root.biggest()
+	return tree.root.biggest()
 }
 
-// Stringify pretty stringify the map by specified options
-func (m *OrderedMap[K, V]) Stringify(options container.StringifyOptions) string {
-	return container.Stringify[*node[K, V]](m.root, options)
-}
-
-// String returns content of the map as a plain string
-func (m *OrderedMap[K, V]) String() string {
-	var buf bytes.Buffer
-	buf.WriteByte('[')
-	iter := m.First()
-	for iter != nil {
-		fmt.Fprintf(&buf, "%v:%v", iter.Key(), iter.Value())
-		iter = iter.Next()
-		if iter != nil {
-			buf.WriteByte(' ')
-		}
-	}
-	buf.WriteByte(']')
-	return buf.String()
-}
-
-func (m *OrderedMap[K, V]) insert(key K, value V) (*node[K, V], bool) {
-	if m.root == nil {
-		m.root = &node[K, V]{
+func (tree *RBTree[K, V]) insert(key K, value V) (*Node[K, V], bool) {
+	if tree.root == nil {
+		tree.root = &Node[K, V]{
 			color: black,
 			key:   key,
 			value: value,
 		}
-		m.root.left = makenull(m.root)
-		m.root.right = makenull(m.root)
-		return m.root, true
+		tree.root.left = makenull(tree.root)
+		tree.root.right = makenull(tree.root)
+		return tree.root, true
 	}
 
 	var (
-		next     = m.root
-		inserted *node[K, V]
+		next     = tree.root
+		inserted *Node[K, V]
 	)
 	for {
 		if key == next.key {
 			next.value = value
 			return next, false
 		}
-		if m.less(key, next.key) {
+		if tree.less(key, next.key) {
 			if next.left.null() {
-				inserted = &node[K, V]{
+				inserted = &Node[K, V]{
 					parent: next,
 					color:  red,
 					key:    key,
@@ -198,7 +186,7 @@ func (m *OrderedMap[K, V]) insert(key K, value V) (*node[K, V], bool) {
 			}
 		} else {
 			if next.right.null() {
-				inserted = &node[K, V]{
+				inserted = &Node[K, V]{
 					parent: next,
 					color:  red,
 					key:    key,
@@ -216,7 +204,7 @@ func (m *OrderedMap[K, V]) insert(key K, value V) (*node[K, V], bool) {
 
 	next = inserted
 	for {
-		next = m.doInsert(next)
+		next = tree.doInsert(next)
 		if next == nil {
 			break
 		}
@@ -224,13 +212,13 @@ func (m *OrderedMap[K, V]) insert(key K, value V) (*node[K, V], bool) {
 	return inserted, true
 }
 
-func (m *OrderedMap[K, V]) find(key K) *node[K, V] {
-	var next = m.root
+func (tree RBTree[K, V]) find(key K) *Node[K, V] {
+	var next = tree.root
 	for next != nil && !next.null() {
 		if next.key == key {
 			return next
 		}
-		if m.less(key, next.key) {
+		if tree.less(key, next.key) {
 			next = next.left
 		} else {
 			next = next.right
@@ -239,9 +227,9 @@ func (m *OrderedMap[K, V]) find(key K) *node[K, V] {
 	return nil
 }
 
-func (m *OrderedMap[K, V]) remove(n *node[K, V], must bool) bool {
+func (tree *RBTree[K, V]) remove(n *Node[K, V], must bool) bool {
 	if !must {
-		if m.root == nil || n == nil || n.ancestor() != m.root {
+		if tree.root == nil || n == nil || n.ancestor() != tree.root {
 			return false
 		}
 	}
@@ -257,12 +245,12 @@ func (m *OrderedMap[K, V]) remove(n *node[K, V], must bool) bool {
 	}
 	if n.parent == nil {
 		if n.left.null() && n.right.null() {
-			m.root = nil
+			tree.root = nil
 			return true
 		}
 		child.parent = nil
-		m.root = child
-		m.root.color = black
+		tree.root = child
+		tree.root.color = black
 		return true
 	}
 
@@ -280,14 +268,14 @@ func (m *OrderedMap[K, V]) remove(n *node[K, V], must bool) bool {
 		return true
 	}
 	for child != nil {
-		child = m.doRemove(child)
+		child = tree.doRemove(child)
 	}
 	return true
 }
 
-func (m *OrderedMap[K, V]) doInsert(n *node[K, V]) *node[K, V] {
+func (tree *RBTree[K, V]) doInsert(n *Node[K, V]) *Node[K, V] {
 	if n.parent == nil {
-		m.root = n
+		tree.root = n
 		n.color = black
 		return nil
 	}
@@ -303,28 +291,28 @@ func (m *OrderedMap[K, V]) doInsert(n *node[K, V]) *node[K, V] {
 		return gp
 	}
 	if n.parent.right == n && n.grandparent().left == n.parent {
-		m.rotateLeft(n.parent)
+		tree.rotateLeft(n.parent)
 		n.color = black
 		n.parent.color = red
-		m.rotateRight(n.parent)
+		tree.rotateRight(n.parent)
 	} else if n.parent.left == n && n.grandparent().right == n.parent {
-		m.rotateRight(n.parent)
+		tree.rotateRight(n.parent)
 		n.color = black
 		n.parent.color = red
-		m.rotateLeft(n.parent)
+		tree.rotateLeft(n.parent)
 	} else if n.parent.left == n && n.grandparent().left == n.parent {
 		n.parent.color = black
 		n.grandparent().color = red
-		m.rotateRight(n.grandparent())
+		tree.rotateRight(n.grandparent())
 	} else if n.parent.right == n && n.grandparent().right == n.parent {
 		n.parent.color = black
 		n.grandparent().color = red
-		m.rotateLeft(n.grandparent())
+		tree.rotateLeft(n.grandparent())
 	}
 	return nil
 }
 
-func (m *OrderedMap[K, V]) doRemove(n *node[K, V]) *node[K, V] {
+func (tree *RBTree[K, V]) doRemove(n *Node[K, V]) *Node[K, V] {
 	if n.parent == nil {
 		n.color = black
 		return nil
@@ -334,9 +322,9 @@ func (m *OrderedMap[K, V]) doRemove(n *node[K, V]) *node[K, V] {
 		n.parent.color = red
 		sibling.color = black
 		if n == n.parent.left {
-			m.rotateLeft(n.parent)
+			tree.rotateLeft(n.parent)
 		} else {
-			m.rotateRight(n.parent)
+			tree.rotateRight(n.parent)
 		}
 	}
 	sibling = n.sibling()
@@ -361,13 +349,13 @@ func (m *OrderedMap[K, V]) doRemove(n *node[K, V]) *node[K, V] {
 			sibling.right.color == black {
 			sibling.color = red
 			sibling.left.color = black
-			m.rotateRight(sibling.left.parent)
+			tree.rotateRight(sibling.left.parent)
 		} else if n == n.parent.right &&
 			sibling.left.color == black &&
 			sibling.right.color == red {
 			sibling.color = red
 			sibling.right.color = black
-			m.rotateLeft(sibling.right.parent)
+			tree.rotateLeft(sibling.right.parent)
 		}
 	}
 	sibling = n.sibling()
@@ -375,10 +363,10 @@ func (m *OrderedMap[K, V]) doRemove(n *node[K, V]) *node[K, V] {
 	n.parent.color = black
 	if n == n.parent.left {
 		sibling.right.color = black
-		m.rotateLeft(sibling.parent)
+		tree.rotateLeft(sibling.parent)
 	} else {
 		sibling.left.color = black
-		m.rotateRight(sibling.parent)
+		tree.rotateRight(sibling.parent)
 	}
 	return nil
 }
@@ -388,7 +376,7 @@ const (
 	right = 1
 )
 
-func (m *OrderedMap[K, V]) rotate(p *node[K, V], dir int) *node[K, V] {
+func (tree *RBTree[K, V]) rotate(p *Node[K, V], dir int) *Node[K, V] {
 	var (
 		g = p.parent
 		s = p.child(1 - dir)
@@ -408,17 +396,17 @@ func (m *OrderedMap[K, V]) rotate(p *node[K, V], dir int) *node[K, V] {
 			g.left = s
 		}
 	} else {
-		m.root = s
+		tree.root = s
 	}
 	return s
 }
 
-func (m *OrderedMap[K, V]) rotateLeft(p *node[K, V]) {
-	m.rotate(p, left)
+func (tree *RBTree[K, V]) rotateLeft(p *Node[K, V]) {
+	tree.rotate(p, left)
 }
 
-func (m *OrderedMap[K, V]) rotateRight(p *node[K, V]) {
-	m.rotate(p, right)
+func (tree *RBTree[K, V]) rotateRight(p *Node[K, V]) {
+	tree.rotate(p, right)
 }
 
 type color byte
@@ -428,32 +416,33 @@ const (
 	black
 )
 
-// node represents the node of Map
-type node[K comparable, V any] struct {
-	parent      *node[K, V]
-	left, right *node[K, V]
+// Node represents the Node of RBTree
+type Node[K comparable, V any] struct {
+	parent      *Node[K, V]
+	left, right *Node[K, V]
 	color       color
 	key         K
 	value       V
 }
 
-func makenull[K comparable, V any](parent *node[K, V]) *node[K, V] {
-	return &node[K, V]{
+func makenull[K comparable, V any](parent *Node[K, V]) *Node[K, V] {
+	return &Node[K, V]{
 		parent: parent,
 		color:  black,
 	}
 }
 
-// ToString implements container.Node ToString method
-func (node *node[K, V]) ToString() string {
-	if node == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("%v:%v", node.key, node.value)
-}
+// Key returns node's key
+func (node *Node[K, V]) Key() K { return node.key }
+
+// Value returns node's value
+func (node *Node[K, V]) Value() V { return node.value }
+
+// SetValue sets node's value
+func (node *Node[K, V]) SetValue(value V) { node.value = value }
 
 // Parent implements container.Node Parent method
-func (node *node[K, V]) Parent() *node[K, V] {
+func (node *Node[K, V]) Parent() *Node[K, V] {
 	if node == nil {
 		return nil
 	}
@@ -461,7 +450,7 @@ func (node *node[K, V]) Parent() *node[K, V] {
 }
 
 // NumChild implements container.Node NumChild method
-func (node *node[K, V]) NumChild() int {
+func (node *Node[K, V]) NumChild() int {
 	if node == nil {
 		return 0
 	}
@@ -470,7 +459,7 @@ func (node *node[K, V]) NumChild() int {
 }
 
 // GetChildByIndex implements container.Node GetChildByIndex method
-func (node *node[K, V]) GetChildByIndex(i int) *node[K, V] {
+func (node *Node[K, V]) GetChildByIndex(i int) *Node[K, V] {
 	switch i {
 	case 0:
 		return operator.If(node.left != nil && !node.left.null(), node.left, node.right)
@@ -481,35 +470,7 @@ func (node *node[K, V]) GetChildByIndex(i int) *node[K, V] {
 	}
 }
 
-// Prev implements Iterator Prev method
-func (node *node[K, V]) Prev() Iterator[K, V] {
-	if prev := node.prev(); prev != nil {
-		return prev
-	}
-	return nil
-}
-
-// Next implements Iterator Next method
-func (node *node[K, V]) Next() Iterator[K, V] {
-	if next := node.next(); next != nil {
-		return next
-	}
-	return nil
-}
-
-// Key returns node's key, implements Iterator Key method
-func (node *node[K, V]) Key() K { return node.key }
-
-// Value returns node's value, implements Iterator Value method
-func (node *node[K, V]) Value() V { return node.value }
-
-// SetValue sets node's value, implements Iterator SetValue method
-func (node *node[K, V]) SetValue(value V) { node.value = value }
-
-// underlyingNode implements Iterator underlyingNode method
-func (node *node[K, V]) underlyingNode() *node[K, V] { return node }
-
-func (node *node[K, V]) prev() *node[K, V] {
+func (node *Node[K, V]) Prev() *Node[K, V] {
 	if node == nil || node.null() {
 		return nil
 	}
@@ -527,7 +488,7 @@ func (node *node[K, V]) prev() *node[K, V] {
 	return parent
 }
 
-func (node *node[K, V]) next() *node[K, V] {
+func (node *Node[K, V]) Next() *Node[K, V] {
 	if node == nil || node.null() {
 		return nil
 	}
@@ -545,18 +506,18 @@ func (node *node[K, V]) next() *node[K, V] {
 	return parent
 }
 
-func (node *node[K, V]) null() bool {
+func (node *Node[K, V]) null() bool {
 	return node.left == nil && node.right == nil
 }
 
-func (node *node[K, V]) child(dir int) *node[K, V] {
+func (node *Node[K, V]) child(dir int) *Node[K, V] {
 	if dir == left {
 		return node.left
 	}
 	return node.right
 }
 
-func (node *node[K, V]) setChild(dir int, child *node[K, V]) {
+func (node *Node[K, V]) setChild(dir int, child *Node[K, V]) {
 	if dir == left {
 		node.left = child
 	} else {
@@ -564,7 +525,7 @@ func (node *node[K, V]) setChild(dir int, child *node[K, V]) {
 	}
 }
 
-func (node *node[K, V]) ancestor() *node[K, V] {
+func (node *Node[K, V]) ancestor() *Node[K, V] {
 	ancestor := node
 	for ancestor.parent != nil {
 		ancestor = ancestor.parent
@@ -572,14 +533,14 @@ func (node *node[K, V]) ancestor() *node[K, V] {
 	return ancestor
 }
 
-func (node *node[K, V]) grandparent() *node[K, V] {
+func (node *Node[K, V]) grandparent() *Node[K, V] {
 	if node.parent == nil {
 		return nil
 	}
 	return node.parent.parent
 }
 
-func (node *node[K, V]) sibling() *node[K, V] {
+func (node *Node[K, V]) sibling() *Node[K, V] {
 	if node.parent == nil {
 		return nil
 	}
@@ -589,14 +550,14 @@ func (node *node[K, V]) sibling() *node[K, V] {
 	return node.parent.left
 }
 
-func (node *node[K, V]) uncle() *node[K, V] {
+func (node *Node[K, V]) uncle() *Node[K, V] {
 	if node.parent == nil {
 		return nil
 	}
 	return node.parent.sibling()
 }
 
-func (node *node[K, V]) smallest() *node[K, V] {
+func (node *Node[K, V]) smallest() *Node[K, V] {
 	var next = node
 	for !next.left.null() {
 		next = next.left
@@ -604,7 +565,7 @@ func (node *node[K, V]) smallest() *node[K, V] {
 	return next
 }
 
-func (node *node[K, V]) biggest() *node[K, V] {
+func (node *Node[K, V]) biggest() *Node[K, V] {
 	var next = node
 	for next.right.null() {
 		next = next.right

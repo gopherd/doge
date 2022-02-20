@@ -1,4 +1,4 @@
-package orderedmap_test
+package ordered_test
 
 import (
 	"fmt"
@@ -7,31 +7,38 @@ import (
 	"testing"
 
 	"github.com/gopherd/doge/container"
-	"github.com/gopherd/doge/container/orderedmap"
+	"github.com/gopherd/doge/container/ordered"
 	"github.com/gopherd/doge/operator"
 )
 
-func ExampleOrderedMap() {
-	m := orderedmap.New[int, int]()
-	fmt.Print("empty:\n" + m.Stringify(container.StringifyOptions{}))
+func ExampleMap() {
+	m := ordered.NewMap[int, int]()
+	fmt.Print("empty:\n" + m.Stringify(nil))
 
 	m.Insert(1, 2)
 	m.Insert(2, 4)
 	m.Insert(4, 8)
-	m.Insert(8, 16)
 
-	fmt.Print("default:\n" + m.Stringify(container.StringifyOptions{}))
-	fmt.Print("custom:\n" + m.Stringify(container.StringifyOptions{
-		Prefix:         "... ",
-		IconParent:     "|  ",
-		IconBranch:     "|--",
-		IconLastBranch: "+--",
+	iter, ok := m.Insert(8, 16)
+	if !ok {
+		fmt.Println("insert fail")
+	} else {
+		fmt.Println("inserted:", iter.Key(), iter.Value())
+	}
+
+	fmt.Print("default:\n" + m.Stringify(nil))
+	fmt.Print("custom:\n" + m.Stringify(&container.StringifyOptions{
+		Prefix:     "... ",
+		Parent:     "|   ",
+		Branch:     "|-- ",
+		LastBranch: "+-- ",
 	}))
 	fmt.Println("plain:\n" + m.String())
 
 	// Output:
 	// empty:
 	// <nil>
+	// inserted: 8 16
 	// default:
 	// 2:4
 	// ├── 1:2
@@ -46,8 +53,8 @@ func ExampleOrderedMap() {
 	// [1:2 2:4 4:8 8:16]
 }
 
-func TestOrderedMap(t *testing.T) {
-	m := orderedmap.NewFunc[int, string](operator.Greater[int])
+func TestMap(t *testing.T) {
+	m := ordered.NewMapFunc[int, string](operator.Greater[int])
 	hashmap := make(map[int]string)
 
 	rand.Seed(100)
@@ -67,7 +74,6 @@ func TestOrderedMap(t *testing.T) {
 			t.Fatalf("map.Set: returned value want %v, but got %v", !found, found)
 		}
 	}
-	_ = add
 
 	remove := func(k int) {
 		_, found := hashmap[k]
@@ -77,7 +83,6 @@ func TestOrderedMap(t *testing.T) {
 			t.Fatalf("map.Remove: want %v, but got %v", found, ok)
 		}
 	}
-	_ = remove
 
 	const (
 		n    = 100
@@ -92,13 +97,13 @@ func TestOrderedMap(t *testing.T) {
 			value = makeValue((keys - 1 - j) * (i + 1))
 			add(key, value)
 		}
-		checkTree("add", t, m, hashmap)
+		checkMap("add", t, m, hashmap)
 	}
 	for j := 0; j < keys; j++ {
 		key := makeKey(j)
 		remove(key)
 	}
-	checkTree("remove", t, m, hashmap)
+	checkMap("remove", t, m, hashmap)
 
 	for i := 0; i < n; i++ {
 		k := makeKey(rand.Intn(keys))
@@ -111,11 +116,11 @@ func TestOrderedMap(t *testing.T) {
 			op = "remove"
 			remove(k)
 		}
-		checkTree(op, t, m, hashmap)
+		checkMap(op, t, m, hashmap)
 	}
 }
 
-func checkTree[K comparable, V comparable](op string, t *testing.T, m *orderedmap.OrderedMap[K, V], hashmap map[K]V) {
+func checkMap[K comparable, V comparable](op string, t *testing.T, m *ordered.Map[K, V], hashmap map[K]V) {
 	if m.Len() != len(hashmap) {
 		t.Fatalf("[%s] len mismacthed: want %d, got %d", op, len(hashmap), m.Len())
 	}
