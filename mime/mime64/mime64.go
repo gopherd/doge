@@ -12,8 +12,8 @@ import (
 	"os"
 )
 
-func Encode(content []byte) []byte {
-	var mimeType = http.DetectContentType(content)
+// EncodeType encodes mime content with specified mime type
+func EncodeType(mimeType string, content []byte) []byte {
 	var buf bytes.Buffer
 	buf.WriteString("data:")
 	buf.WriteString(mimeType)
@@ -22,10 +22,29 @@ func Encode(content []byte) []byte {
 	return buf.Bytes()
 }
 
+// Encode encodes mime content
+func Encode(mime []byte) []byte {
+	return EncodeType(http.DetectContentType(mime), mime)
+}
+
+//----------------------------------------------------------
+// Helper functions
+
+// EncodeToString encodes mime content to string
 func EncodeToString(content []byte) string {
 	return string(Encode(content))
 }
 
+// EncodeReader encodes mime content from reader to string
+func EncodeReader(r io.Reader) (string, error) {
+	content, err := io.ReadAll(r)
+	if err != nil {
+		return "", err
+	}
+	return EncodeToString(content), nil
+}
+
+// EncodeFile encodes mime content from file to string
 func EncodeFile(filename string) (string, error) {
 	content, err := os.ReadFile(filename)
 	if err != nil {
@@ -34,6 +53,7 @@ func EncodeFile(filename string) (string, error) {
 	return EncodeToString(content), nil
 }
 
+// EncodeURL encodes mime content from url to string
 func EncodeURL(url string) (string, error) {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -47,6 +67,7 @@ func EncodeURL(url string) (string, error) {
 	return EncodeToString(content), nil
 }
 
+// EncodeImagePNG encodes image/png to string
 func EncodeImagePNG(img image.Image) (string, error) {
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
@@ -55,6 +76,7 @@ func EncodeImagePNG(img image.Image) (string, error) {
 	return EncodeToString(buf.Bytes()), nil
 }
 
+// EncodeImageJPEG encodes image/jpeg to string
 func EncodeImageJPEG(img image.Image) (string, error) {
 	var buf bytes.Buffer
 	if err := jpeg.Encode(&buf, img, nil); err != nil {
@@ -63,6 +85,7 @@ func EncodeImageJPEG(img image.Image) (string, error) {
 	return EncodeToString(buf.Bytes()), nil
 }
 
+// EncodeImageGIF encodes image/gif to string
 func EncodeImageGIF(img image.Image) (string, error) {
 	var buf bytes.Buffer
 	if err := gif.Encode(&buf, img, nil); err != nil {
