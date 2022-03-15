@@ -105,3 +105,41 @@ func (vec Vector[T]) Normp(p T) T {
 	}
 	return T(math.Pow(sum, 1.0/float64(p)))
 }
+
+// Range creates a vector [start, end)
+func Range[T constraints.SignedReal](start, end T) Vector[T] {
+	if end <= start {
+		return nil
+	}
+	var vec = make(Vector[T], 0, int(end-start))
+	for start < end {
+		vec = append(vec, start)
+		start++
+	}
+	return vec
+}
+
+// RangeN creates a vector [0, n)
+func RangeN[T constraints.SignedReal](n T) Vector[T] {
+	return Range(0, n)
+}
+
+// Linspace creates a vector {x1=from, ..., xn=to}
+func Linspace[T constraints.SignedReal](from, to T, n int) Vector[T] {
+	if n < 1 {
+		return nil
+	}
+	if n == 1 {
+		return Vec(from)
+	}
+	var interval = (to - from) / T(n-1)
+	var vec = make(Vector[T], n)
+	for i := 0; i < n; i++ {
+		if i+1 == n {
+			vec[i] = to
+		} else {
+			vec[i] = from + T(i)*interval
+		}
+	}
+	return vec
+}

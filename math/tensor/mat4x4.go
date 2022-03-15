@@ -99,12 +99,12 @@ func (mat Matrix4[T]) DotVec4(vec Vector4[T]) Vector4[T] {
 	return result
 }
 
-func (mat Matrix4[T]) Square() T {
+func (mat Matrix4[T]) SquaredLength() T {
 	return mat.Hadamard(mat).Sum()
 }
 
 func (mat Matrix4[T]) Length() T {
-	return T(math.Sqrt(float64(mat.Square())))
+	return T(math.Sqrt(float64(mat.SquaredLength())))
 }
 
 func (mat Matrix4[T]) Add(other Matrix4[T]) Matrix4[T] {

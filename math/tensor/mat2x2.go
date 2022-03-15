@@ -87,12 +87,12 @@ func (mat Matrix2[T]) DotVec2(vec Vector2[T]) Vector2[T] {
 	return result
 }
 
-func (mat Matrix2[T]) Square() T {
+func (mat Matrix2[T]) SquaredLength() T {
 	return mat.Hadamard(mat).Sum()
 }
 
 func (mat Matrix2[T]) Length() T {
-	return T(math.Sqrt(float64(mat.Square())))
+	return T(math.Sqrt(float64(mat.SquaredLength())))
 }
 
 func (mat Matrix2[T]) Add(other Matrix2[T]) Matrix2[T] {

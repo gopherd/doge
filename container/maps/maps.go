@@ -1,6 +1,9 @@
 package maps
 
-import "github.com/gopherd/doge/constraints"
+import (
+	"github.com/gopherd/doge/constraints"
+	"github.com/gopherd/doge/container/pair"
+)
 
 // Keys retrieves keys of map
 func Keys[M ~map[K]V, K comparable, V any](m M) []K {
@@ -77,49 +80,55 @@ func MinmaxKey[M ~map[K]V, K constraints.Ordered, V any](m M) (min, max K) {
 }
 
 // MinValue retrieves mininum value of map
-func MinValue[M ~map[K]V, K comparable, V constraints.Ordered](m M) V {
+func MinValue[M ~map[K]V, K comparable, V constraints.Ordered](m M) pair.Pair[K, V] {
+	var key K
 	var min V
 	if m == nil {
-		return min
+		return pair.Make(key, min)
 	}
 	var n int
-	for _, v := range m {
+	for k, v := range m {
 		if n == 0 || v < min {
+			key = k
 			min = v
 		}
 		n++
 	}
-	return min
+	return pair.Make(key, min)
 }
 
 // MaxValue retrieves mininum value of map
-func MaxValue[M ~map[K]V, K comparable, V constraints.Ordered](m M) V {
+func MaxValue[M ~map[K]V, K comparable, V constraints.Ordered](m M) pair.Pair[K, V] {
+	var key K
 	var max V
 	if m == nil {
-		return max
+		return pair.Make(key, max)
 	}
 	var n int
-	for _, v := range m {
+	for k, v := range m {
 		if n == 0 || v > max {
+			key = k
 			max = v
 		}
 		n++
 	}
-	return max
+	return pair.Make(key, max)
 }
 
 // MinmaxValue retrieves mininum and maxinum value of map
-func MinmaxValue[M ~map[K]V, K comparable, V constraints.Ordered](m M) (min, max V) {
+func MinmaxValue[M ~map[K]V, K comparable, V constraints.Ordered](m M) (min, max pair.Pair[K, V]) {
 	if m == nil {
 		return
 	}
 	var n int
-	for _, v := range m {
-		if n == 0 || v < min {
-			min = v
+	for k, v := range m {
+		if n == 0 || v < min.Second {
+			min.First = k
+			min.Second = v
 		}
-		if n == 0 || v > max {
-			max = v
+		if n == 0 || v > max.Second {
+			max.First = k
+			max.Second = v
 		}
 		n++
 	}
