@@ -395,7 +395,7 @@ func (mat Matrix4[T]) Decompose() (position Vector3[T], quaternion Vector4[T], s
 		sx = -sx
 	}
 
-	position.Set(mat[12], mat[13], mat[14])
+	position.SetElements(mat[12], mat[13], mat[14])
 
 	var invSX = 1 / sx
 	var invSY = 1 / sy
@@ -414,7 +414,7 @@ func (mat Matrix4[T]) Decompose() (position Vector3[T], quaternion Vector4[T], s
 	mat[10] *= invSZ
 
 	quaternion = mat.GetQuaternion()
-	scale.Set(sx, sy, sz)
+	scale.SetElements(sx, sy, sz)
 
 	return
 }

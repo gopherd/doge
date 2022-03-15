@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/gopherd/doge/constraints"
+	"github.com/gopherd/doge/operator"
 )
 
 // Vector2 implements 2d vector
@@ -18,13 +19,17 @@ func (vec Vector2[T]) String() string {
 	return fmt.Sprintf("(%v,%v)", vec[0], vec[1])
 }
 
+func (vec Vector2[T]) Dim() int        { return 2 }
+func (vec Vector2[T]) Get(i int) T     { return operator.If(i < len(vec), vec[i], 0) }
+func (vec *Vector2[T]) Set(i int, v T) { vec[i] = v }
+
 func (vec Vector2[T]) X() T { return vec[0] }
 func (vec Vector2[T]) Y() T { return vec[1] }
 
 func (vec *Vector2[T]) SetX(x T) { vec[0] = x }
 func (vec *Vector2[T]) SetY(y T) { vec[1] = y }
 
-func (vec *Vector2[T]) Set(x, y T) {
+func (vec *Vector2[T]) SetElements(x, y T) {
 	(*vec)[0], (*vec)[1] = x, y
 }
 
@@ -43,12 +48,12 @@ func (vec Vector2[T]) Dot(other Vector2[T]) T {
 	return vec[0]*other[0] + vec[1]*other[1]
 }
 
-func (vec Vector2[T]) Square() T {
+func (vec Vector2[T]) SquaredLength() T {
 	return vec.Dot(vec)
 }
 
 func (vec Vector2[T]) Length() T {
-	return T(math.Sqrt(float64(vec.Square())))
+	return T(math.Sqrt(float64(vec.SquaredLength())))
 }
 
 func (vec Vector2[T]) Add(other Vector2[T]) Vector2[T] {

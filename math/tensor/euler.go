@@ -116,6 +116,6 @@ func (euler *Euler[T]) SetFromRotationMatrix(mat Matrix4[T]) *Euler[T] {
 			z = 0
 		}
 	}
-	euler.Set(T(x), T(y), T(z))
+	euler.SetElements(T(x), T(y), T(z))
 	return euler
 }

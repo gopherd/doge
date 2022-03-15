@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/gopherd/doge/constraints"
+	"github.com/gopherd/doge/operator"
 )
 
 // Vector3 implements 3d vector
@@ -18,6 +19,10 @@ func (vec Vector3[T]) String() string {
 	return fmt.Sprintf("(%v,%v,%v)", vec[0], vec[1], vec[2])
 }
 
+func (vec Vector3[T]) Dim() int        { return 3 }
+func (vec Vector3[T]) Get(i int) T     { return operator.If(i < len(vec), vec[i], 0) }
+func (vec *Vector3[T]) Set(i int, v T) { vec[i] = v }
+
 func (vec Vector3[T]) X() T { return vec[0] }
 func (vec Vector3[T]) Y() T { return vec[1] }
 func (vec Vector3[T]) Z() T { return vec[2] }
@@ -26,7 +31,7 @@ func (vec *Vector3[T]) SetX(x T) { vec[0] = x }
 func (vec *Vector3[T]) SetY(y T) { vec[1] = y }
 func (vec *Vector3[T]) SetZ(z T) { vec[2] = z }
 
-func (vec *Vector3[T]) Set(x, y, z T) {
+func (vec *Vector3[T]) SetElements(x, y, z T) {
 	(*vec)[0], (*vec)[1], (*vec)[2] = x, y, z
 }
 
@@ -44,12 +49,12 @@ func (vec Vector3[T]) Dot(other Vector3[T]) T {
 	return vec[0]*other[0] + vec[1]*other[1] + vec[2]*other[2]
 }
 
-func (vec Vector3[T]) Square() T {
+func (vec Vector3[T]) SquaredLength() T {
 	return vec.Dot(vec)
 }
 
 func (vec Vector3[T]) Length() T {
-	return T(math.Sqrt(float64(vec.Square())))
+	return T(math.Sqrt(float64(vec.SquaredLength())))
 }
 
 func (vec Vector3[T]) Add(other Vector3[T]) Vector3[T] {

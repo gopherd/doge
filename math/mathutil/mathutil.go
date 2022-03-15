@@ -6,6 +6,7 @@ import (
 	"github.com/gopherd/doge/constraints"
 )
 
+// Min returns mininum value
 func Min[T constraints.Ordered](x, y T) T {
 	if x < y {
 		return x
@@ -13,6 +14,7 @@ func Min[T constraints.Ordered](x, y T) T {
 	return y
 }
 
+// Max returns maxinum value
 func Max[T constraints.Ordered](x, y T) T {
 	if x > y {
 		return x
@@ -20,13 +22,15 @@ func Max[T constraints.Ordered](x, y T) T {
 	return y
 }
 
-func Minmax[T constraints.Float](x, y T) (min, max T) {
+// Minmax returns ordered values
+func Minmax[T constraints.Ordered](x, y T) (min, max T) {
 	if x < y {
 		return x, y
 	}
 	return y, x
 }
 
+// Abs returns abs of x
 func Abs[T constraints.SignedReal](x T) T {
 	if x < 0 {
 		return -x
@@ -34,10 +38,20 @@ func Abs[T constraints.SignedReal](x T) T {
 	return x
 }
 
-func Clamp[T constraints.Ordered](value, min, max T) T {
-	return Max(min, Min(max, value))
+// Predict returns 1 if ok, otherwise 0
+func Predict[T constraints.Number](ok bool) T {
+	if ok {
+		return 1
+	}
+	return 0
 }
 
+// Clamp clamps x into range [min, max]
+func Clamp[T constraints.Ordered](x, min, max T) T {
+	return Max(min, Min(max, x))
+}
+
+// EuclideanModulo computes euclidean modulo: x % y
 func EuclideanModulo[T constraints.Float](x, y T) T {
 	var x64, y64 = float64(x), float64(y)
 	return T(math.Mod(math.Mod(x64, y64)+y64, y64))
@@ -48,17 +62,17 @@ func MapLinear[T constraints.Field](x, a1, a2, b1, b2 T) T {
 	return b1 + (x-a1)*(b2-b1)/(a2-a1)
 }
 
+// https://en.wikipedia.org/wiki/Linear_interpolation
+func Lerp[T constraints.Field](x, y, t T) T {
+	return (1-t)*x + t*y
+}
+
 // https://www.gamedev.net/tutorials/programming/general-and-gameplay-programming/inverse-lerp-a-super-useful-yet-often-overlooked-function-r5230/
 func InverseLerp[T constraints.Field](x, y, value T) T {
 	if x == y {
 		return 0
 	}
 	return (value - x) / (y - x)
-}
-
-// https://en.wikipedia.org/wiki/Linear_interpolation
-func Lerp[T constraints.Field](x, y, t T) T {
-	return (1-t)*x + t*y
 }
 
 // http://www.rorydriscoll.com/2016/03/07/frame-rate-independent-damping-using-lerp/
