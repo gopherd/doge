@@ -6,11 +6,28 @@ import (
 	"math"
 
 	"github.com/gopherd/doge/constraints"
+	"github.com/gopherd/doge/container/tuple"
 )
 
+// Matrix3 represents a 3x3 matrix
 type Matrix3[T constraints.SignedReal] [3 * 3]T
 
+// Zero3x3 creates a zero 3x3 matrix
+func Zero3x3[T constraints.SignedReal]() Matrix3[T] {
+	return Matrix3[T]{}
+}
+
+// One4x4 creates a 3x3 matrix which every element is 1
 func One3x3[T constraints.SignedReal]() Matrix3[T] {
+	return Matrix3[T]{
+		1, 1, 1,
+		1, 1, 1,
+		1, 1, 1,
+	}
+}
+
+// Identity3 creates a 3x3 identity matrix
+func Identity3[T constraints.SignedReal]() Matrix3[T] {
 	return Matrix3[T]{
 		1, 0, 0,
 		0, 1, 0,
@@ -18,6 +35,7 @@ func One3x3[T constraints.SignedReal]() Matrix3[T] {
 	}
 }
 
+// String convers matrix as a string
 func (mat Matrix3[T]) String() string {
 	const dim = 3
 	var buf bytes.Buffer
@@ -39,13 +57,19 @@ func (mat Matrix3[T]) String() string {
 	return buf.String()
 }
 
-func (mat *Matrix3[T]) SetElements(n11, n12, n13, n21, n22, n23, n31, n32, n33 T) *Matrix3[T] {
-	(*mat)[0], (*mat)[3], (*mat)[6] = n11, n12, n13
-	(*mat)[1], (*mat)[4], (*mat)[7] = n21, n22, n23
-	(*mat)[2], (*mat)[5], (*mat)[8] = n31, n32, n33
-	return mat
+var shape3x3 = tuple.T2(3, 3)
+
+// Shape implements Tensor Shape method
+func (mat Matrix3[T]) Shape() Shape {
+	return shape3x3
 }
 
+// At implements Tensor At method
+func (mat Matrix3[T]) At(index Shape) T {
+	return mat.Get(index.At(0), index.At(1))
+}
+
+// Sum implements Tensor Sum method
 func (mat Matrix3[T]) Sum() T {
 	var result T
 	for i := range mat {
@@ -53,6 +77,31 @@ func (mat Matrix3[T]) Sum() T {
 	}
 	return result
 }
+
+//----------------------------------------------
+// basic functions
+
+func (mat Matrix3[T]) Get(i, j int) T {
+	return mat[i+j*3]
+}
+
+func (mat *Matrix3[T]) Set(i, j int, x T) {
+	mat[i+j*3] = x
+}
+
+func (mat Matrix3[T]) Elements() []T {
+	return mat[:]
+}
+
+func (mat *Matrix3[T]) SetElements(n11, n12, n13, n21, n22, n23, n31, n32, n33 T) *Matrix3[T] {
+	(*mat)[0], (*mat)[3], (*mat)[6] = n11, n12, n13
+	(*mat)[1], (*mat)[4], (*mat)[7] = n21, n22, n23
+	(*mat)[2], (*mat)[5], (*mat)[8] = n31, n32, n33
+	return mat
+}
+
+//----------------------------------------------
+// operator functions
 
 func (mat Matrix3[T]) Transpose() Matrix3[T] {
 	const dim = 3
@@ -62,6 +111,45 @@ func (mat Matrix3[T]) Transpose() Matrix3[T] {
 		}
 	}
 	return mat
+}
+
+func (mat Matrix3[T]) Add(other Matrix3[T]) Matrix3[T] {
+	for i := range mat {
+		mat[i] += other[i]
+	}
+	return mat
+}
+
+func (mat Matrix3[T]) Sub(other Matrix3[T]) Matrix3[T] {
+	for i := range mat {
+		mat[i] -= other[i]
+	}
+	return mat
+}
+
+func (mat Matrix3[T]) Mul(other Matrix3[T]) Matrix3[T] {
+	for i := range mat {
+		mat[i] *= other[i]
+	}
+	return mat
+}
+
+func (mat Matrix3[T]) Div(other Matrix3[T]) Matrix3[T] {
+	for i := range mat {
+		mat[i] /= other[i]
+	}
+	return mat
+}
+
+func (mat Matrix3[T]) Scale(v T) Matrix3[T] {
+	for i := range mat {
+		mat[i] /= v
+	}
+	return mat
+}
+
+func (mat Matrix3[T]) Normalize() Matrix3[T] {
+	return mat.Scale(1 / mat.Norm())
 }
 
 func (mat Matrix3[T]) Dot(other Matrix3[T]) Matrix3[T] {
@@ -91,60 +179,6 @@ func (mat Matrix3[T]) DotVec3(vec Vector3[T]) Vector3[T] {
 		}
 	}
 	return result
-}
-
-func (mat Matrix3[T]) SquaredLength() T {
-	return mat.Hadamard(mat).Sum()
-}
-
-func (mat Matrix3[T]) Length() T {
-	return T(math.Sqrt(float64(mat.SquaredLength())))
-}
-
-func (mat Matrix3[T]) Add(other Matrix3[T]) Matrix3[T] {
-	for i := range mat {
-		mat[i] += other[i]
-	}
-	return mat
-}
-
-func (mat Matrix3[T]) Sub(other Matrix3[T]) Matrix3[T] {
-	for i := range mat {
-		mat[i] -= other[i]
-	}
-	return mat
-}
-
-func (mat Matrix3[T]) Mul(v T) Matrix3[T] {
-	for i := range mat {
-		mat[i] *= v
-	}
-	return mat
-}
-
-func (mat Matrix3[T]) Div(v T) Matrix3[T] {
-	for i := range mat {
-		mat[i] /= v
-	}
-	return mat
-}
-
-func (mat Matrix3[T]) Hadamard(other Matrix3[T]) Matrix3[T] {
-	for i := range mat {
-		mat[i] *= other[i]
-	}
-	return mat
-}
-
-func (mat Matrix3[T]) Normalize() Matrix3[T] {
-	return mat.Div(mat.Length())
-}
-
-func (mat Matrix3[T]) Determaint() T {
-	var a, b, c = mat[0], mat[1], mat[2]
-	var d, e, f = mat[3], mat[4], mat[5]
-	var g, h, i = mat[6], mat[7], mat[8]
-	return a*e*i - a*f*h - b*d*i + b*f*g + c*d*h - c*e*g
 }
 
 func (mat Matrix3[T]) Invert() Matrix3[T] {
@@ -178,6 +212,35 @@ func (mat Matrix3[T]) Invert() Matrix3[T] {
 
 	return mat
 }
+
+//----------------------------------------------
+// measure functions
+
+func (mat Matrix3[T]) Determaint() T {
+	var a, b, c = mat[0], mat[1], mat[2]
+	var d, e, f = mat[3], mat[4], mat[5]
+	var g, h, i = mat[6], mat[7], mat[8]
+	return a*e*i - a*f*h - b*d*i + b*f*g + c*d*h - c*e*g
+}
+
+func (mat Matrix3[T]) SquaredLength() T {
+	return mat.Mul(mat).Sum()
+}
+
+func (mat Matrix3[T]) Norm() T {
+	return T(math.Sqrt(float64(mat.SquaredLength())))
+}
+
+func (mat Matrix3[T]) Normp(p T) T {
+	var sum float64
+	for _, v := range mat {
+		sum += math.Pow(float64(v), float64(p))
+	}
+	return T(math.Pow(sum, 1/float64(p)))
+}
+
+//----------------------------------------------
+// geometry functions
 
 func (mat *Matrix3[T]) MakeIdentity() *Matrix3[T] {
 	return mat.SetElements(

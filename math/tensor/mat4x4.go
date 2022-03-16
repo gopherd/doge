@@ -6,11 +6,29 @@ import (
 	"math"
 
 	"github.com/gopherd/doge/constraints"
+	"github.com/gopherd/doge/container/tuple"
 )
 
+// Matrix4 represents a 4x4 matrix
 type Matrix4[T constraints.SignedReal] [4 * 4]T
 
+// Zero4x4 creates a zero 4x4 matrix
+func Zero4x4[T constraints.SignedReal]() Matrix4[T] {
+	return Matrix4[T]{}
+}
+
+// One4x4 creates a 4x4 matrix which every element is 1
 func One4x4[T constraints.SignedReal]() Matrix4[T] {
+	return Matrix4[T]{
+		1, 1, 1, 1,
+		1, 1, 1, 1,
+		1, 1, 1, 1,
+		1, 1, 1, 1,
+	}
+}
+
+// Identity4 creates a 4x4 identity matrix
+func Identity4[T constraints.SignedReal]() Matrix4[T] {
 	return Matrix4[T]{
 		1, 0, 0, 0,
 		0, 1, 0, 0,
@@ -19,6 +37,7 @@ func One4x4[T constraints.SignedReal]() Matrix4[T] {
 	}
 }
 
+// String convers matrix as a string
 func (mat Matrix4[T]) String() string {
 	const dim = 4
 	var buf bytes.Buffer
@@ -40,6 +59,42 @@ func (mat Matrix4[T]) String() string {
 	return buf.String()
 }
 
+var shape4x4 = tuple.T2(4, 4)
+
+// Shape implements Tensor Shape method
+func (mat Matrix4[T]) Shape() Shape {
+	return shape4x4
+}
+
+// At implements Tensor At method
+func (mat Matrix4[T]) At(index Shape) T {
+	return mat.Get(index.At(0), index.At(1))
+}
+
+// Sum implements Tensor Sum method
+func (mat Matrix4[T]) Sum() T {
+	var result T
+	for i := range mat {
+		result += mat[i]
+	}
+	return result
+}
+
+//----------------------------------------------
+// basic functions
+
+func (mat Matrix4[T]) Get(i, j int) T {
+	return mat[i+j*4]
+}
+
+func (mat *Matrix4[T]) Set(i, j int, x T) {
+	mat[i+j*4] = x
+}
+
+func (mat Matrix4[T]) Elements() []T {
+	return mat[:]
+}
+
 func (mat *Matrix4[T]) SetElements(n11, n12, n13, n14, n21, n22, n23, n24, n31, n32, n33, n34, n41, n42, n43, n44 T) *Matrix4[T] {
 	(*mat)[0], (*mat)[4], (*mat)[8], (*mat)[12] = n11, n12, n13, n14
 	(*mat)[1], (*mat)[5], (*mat)[9], (*mat)[13] = n21, n22, n23, n24
@@ -48,13 +103,8 @@ func (mat *Matrix4[T]) SetElements(n11, n12, n13, n14, n21, n22, n23, n24, n31, 
 	return mat
 }
 
-func (mat Matrix4[T]) Sum() T {
-	var result T
-	for i := range mat {
-		result += mat[i]
-	}
-	return result
-}
+//----------------------------------------------
+// operator functions
 
 func (mat Matrix4[T]) Transpose() Matrix4[T] {
 	const dim = 4
@@ -64,6 +114,45 @@ func (mat Matrix4[T]) Transpose() Matrix4[T] {
 		}
 	}
 	return mat
+}
+
+func (mat Matrix4[T]) Add(other Matrix4[T]) Matrix4[T] {
+	for i := range mat {
+		mat[i] += other[i]
+	}
+	return mat
+}
+
+func (mat Matrix4[T]) Sub(other Matrix4[T]) Matrix4[T] {
+	for i := range mat {
+		mat[i] -= other[i]
+	}
+	return mat
+}
+
+func (mat Matrix4[T]) Mul(other Matrix4[T]) Matrix4[T] {
+	for i := range mat {
+		mat[i] *= other[i]
+	}
+	return mat
+}
+
+func (mat Matrix4[T]) Div(other Matrix4[T]) Matrix4[T] {
+	for i := range mat {
+		mat[i] /= other[i]
+	}
+	return mat
+}
+
+func (mat Matrix4[T]) Scale(v T) Matrix4[T] {
+	for i := range mat {
+		mat[i] *= v
+	}
+	return mat
+}
+
+func (mat Matrix4[T]) Normalize() Matrix4[T] {
+	return mat.Scale(1 / mat.Norm())
 }
 
 func (mat Matrix4[T]) Dot(other Matrix4[T]) Matrix4[T] {
@@ -97,65 +186,6 @@ func (mat Matrix4[T]) DotVec4(vec Vector4[T]) Vector4[T] {
 		}
 	}
 	return result
-}
-
-func (mat Matrix4[T]) SquaredLength() T {
-	return mat.Hadamard(mat).Sum()
-}
-
-func (mat Matrix4[T]) Length() T {
-	return T(math.Sqrt(float64(mat.SquaredLength())))
-}
-
-func (mat Matrix4[T]) Add(other Matrix4[T]) Matrix4[T] {
-	for i := range mat {
-		mat[i] += other[i]
-	}
-	return mat
-}
-
-func (mat Matrix4[T]) Sub(other Matrix4[T]) Matrix4[T] {
-	for i := range mat {
-		mat[i] -= other[i]
-	}
-	return mat
-}
-
-func (mat Matrix4[T]) Mul(v T) Matrix4[T] {
-	for i := range mat {
-		mat[i] *= v
-	}
-	return mat
-}
-
-func (mat Matrix4[T]) Div(v T) Matrix4[T] {
-	for i := range mat {
-		mat[i] /= v
-	}
-	return mat
-}
-
-func (mat Matrix4[T]) Hadamard(other Matrix4[T]) Matrix4[T] {
-	for i := range mat {
-		mat[i] *= other[i]
-	}
-	return mat
-}
-
-func (mat Matrix4[T]) Normalize() Matrix4[T] {
-	return mat.Div(mat.Length())
-}
-
-func (mat Matrix4[T]) Determinant() T {
-	var n11, n12, n13, n14 = mat[0], mat[4], mat[8], mat[12]
-	var n21, n22, n23, n24 = mat[1], mat[5], mat[9], mat[13]
-	var n31, n32, n33, n34 = mat[2], mat[6], mat[10], mat[14]
-	var n41, n42, n43, n44 = mat[3], mat[7], mat[11], mat[15]
-
-	return n41*(+n14*n23*n32-n13*n24*n32-n14*n22*n33+n12*n24*n33+n13*n22*n34-n12*n23*n34) +
-		n42*(+n11*n23*n34-n11*n24*n33+n14*n21*n33-n13*n21*n34+n13*n24*n31-n14*n23*n31) +
-		n43*(+n11*n24*n32-n11*n22*n34-n14*n21*n32+n12*n21*n34+n14*n22*n31-n12*n24*n31) +
-		n44*(-n13*n22*n31-n11*n23*n32+n11*n22*n33+n13*n21*n32-n12*n21*n33+n12*n23*n31)
 }
 
 // based on http://www.euclideanspace.com/maths/algebra/matrix/functions/inverse/fourD/index.htm
@@ -200,6 +230,40 @@ func (mat Matrix4[T]) Invert() Matrix4[T] {
 
 	return mat
 }
+
+//----------------------------------------------
+// measure functions
+
+func (mat Matrix4[T]) Determinant() T {
+	var n11, n12, n13, n14 = mat[0], mat[4], mat[8], mat[12]
+	var n21, n22, n23, n24 = mat[1], mat[5], mat[9], mat[13]
+	var n31, n32, n33, n34 = mat[2], mat[6], mat[10], mat[14]
+	var n41, n42, n43, n44 = mat[3], mat[7], mat[11], mat[15]
+
+	return n41*(+n14*n23*n32-n13*n24*n32-n14*n22*n33+n12*n24*n33+n13*n22*n34-n12*n23*n34) +
+		n42*(+n11*n23*n34-n11*n24*n33+n14*n21*n33-n13*n21*n34+n13*n24*n31-n14*n23*n31) +
+		n43*(+n11*n24*n32-n11*n22*n34-n14*n21*n32+n12*n21*n34+n14*n22*n31-n12*n24*n31) +
+		n44*(-n13*n22*n31-n11*n23*n32+n11*n22*n33+n13*n21*n32-n12*n21*n33+n12*n23*n31)
+}
+
+func (mat Matrix4[T]) SquaredLength() T {
+	return mat.Mul(mat).Sum()
+}
+
+func (mat Matrix4[T]) Norm() T {
+	return T(math.Sqrt(float64(mat.SquaredLength())))
+}
+
+func (mat Matrix4[T]) Normp(p T) T {
+	var sum float64
+	for _, v := range mat {
+		sum += math.Pow(float64(v), float64(p))
+	}
+	return T(math.Pow(sum, 1/float64(p)))
+}
+
+//----------------------------------------------
+// geometry functions
 
 func (mat Matrix4[T]) GetPosition() Vector3[T] {
 	return Vec3(mat[12], mat[13], mat[14])
@@ -385,9 +449,9 @@ func (mat *Matrix4[T]) Compose(position Vector3[T], quaternion Vector4[T], scale
 }
 
 func (mat Matrix4[T]) Decompose() (position Vector3[T], quaternion Vector4[T], scale Vector3[T]) {
-	var sx = Vec3(mat[0], mat[1], mat[2]).Length()
-	var sy = Vec3(mat[4], mat[5], mat[6]).Length()
-	var sz = Vec3(mat[8], mat[9], mat[10]).Length()
+	var sx = Vec3(mat[0], mat[1], mat[2]).Norm()
+	var sy = Vec3(mat[4], mat[5], mat[6]).Norm()
+	var sz = Vec3(mat[8], mat[9], mat[10]).Norm()
 
 	// if determine is negative, we need to invert one scale
 	var det = mat.Determinant()
