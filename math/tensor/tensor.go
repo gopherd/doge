@@ -85,9 +85,30 @@ func lastof(shape Shape) int {
 
 func next(shape Shape, index Indices) Indices {
 	for i, x := range index {
-		if x < shape.At(i) {
+		var up = shape.At(i)
+		if x+1 > up {
+			continue
 		}
+		x++
+		if x < up {
+			index[i] = x
+			return index
+		}
+		var j = i + 1
+		for ; j < len(index); j++ {
+			if index[j]+1 < shape.At(j) {
+				break
+			}
+		}
+		if j == len(index) {
+			return nil
+		}
+		for k := i; k < j; k++ {
+			index[k] = 0
+		}
+		return index
 	}
+	return nil
 }
 
 // Product computes tensor product: a⊗b
@@ -128,19 +149,23 @@ func (t productedTensor[T]) Sum() T {
 func Dot[T constraints.SignedReal](a, b Tensor[T]) Tensor[T] {
 	var ashape = a.Shape()
 	var bshape = b.Shape()
-	if l := ashape.Len(); (l == 0) != (bshape.Len() == 0) {
+	var alen, blen = ashape.Len(), bshape.Len()
+	if (alen == 0) != (blen == 0) {
 		panic("tensor.dot: size mismatched")
-	} else if l == 0 {
+	} else if alen == 0 {
 		return Scalar(a.Sum() * b.Sum())
 	}
 	var n = lastof(ashape)
 	if n != firstof(bshape) {
 		panic("tensor.dot: size mismatched")
 	}
+
 	var shape = tuple.Concat(
-		tuple.Slice(ashape, 0, ashape.Len()-1),
-		tuple.Slice(bshape, 1, ashape.Len()),
+		tuple.Slice(ashape, 0, alen),
+		tuple.Slice(bshape, 1, blen),
 	)
+
+	// shape.Len == alen + blen - 2
 	if shape.Len() == 0 {
 		var sum T
 		for i := Index(0); i < Index(n); i++ {
@@ -148,7 +173,26 @@ func Dot[T constraints.SignedReal](a, b Tensor[T]) Tensor[T] {
 		}
 		return Scalar(sum)
 	}
-	var c = Create[T](shape)
-	// TODO: computes tensor dot
+
+	// c = a‧b
+	var c = tensor[T]{
+		shape: shape,
+		data:  make(Vector[T], sizeof(shape)),
+	}
+	var indices = make(Indices, shape.Len())
+	var aindices = make(Indices, alen)
+	var bindices = make(Indices, blen)
+	for len(indices) > 0 {
+		indices = next(shape, indices)
+		copy(aindices[:alen-1], indices[:alen-1])
+		copy(bindices[1:], indices[alen-1:])
+		var sum T
+		for i := 0; i < n; i++ {
+			aindices[alen-1] = i
+			bindices[0] = i
+			sum += a.At(aindices) * b.At(bindices)
+			c.set(indices, sum)
+		}
+	}
 	return c
 }
