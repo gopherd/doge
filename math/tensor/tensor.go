@@ -68,19 +68,14 @@ func offsetof(shape, index Shape) int {
 }
 
 func sizeof(shape Shape) int {
+	if shape.Len() == 0 {
+		return 1
+	}
 	var size int
 	for i, n := 0, shape.Len(); i < n; i++ {
 		size *= shape.At(i)
 	}
 	return size
-}
-
-func firstof(shape Shape) int {
-	return shape.At(0)
-}
-
-func lastof(shape Shape) int {
-	return shape.At(shape.Len() - 1)
 }
 
 func next(shape Shape, index Indices) Indices {
@@ -155,8 +150,8 @@ func Dot[T constraints.SignedReal](a, b Tensor[T]) Tensor[T] {
 	} else if alen == 0 {
 		return Scalar(a.Sum() * b.Sum())
 	}
-	var n = lastof(ashape)
-	if n != firstof(bshape) {
+	var n = ashape.At(ashape.Len() - 1)
+	if n != bshape.At(0) {
 		panic("tensor.dot: size mismatched")
 	}
 
