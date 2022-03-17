@@ -1,13 +1,51 @@
-package stringify
+package tree
 
 import (
 	"bytes"
 	"fmt"
 	"io"
 
-	"github.com/gopherd/doge/container"
 	"github.com/gopherd/doge/operator"
 )
+
+// Node represents a generic printable node
+type Node[T comparable] interface {
+	String() string          // String returns node self information
+	Parent() T               // Parent returns parent node or nil
+	NumChild() int           // NumChild returns number of child
+	GetChildByIndex(i int) T // GetChildByIndex gets child by index
+}
+
+type NodeMarshaler[T comparable] interface {
+	Node[T]
+	Marshal() ([]byte, error)
+}
+
+type NodeUnmarshaler[T comparable] interface {
+	Node[T]
+	Unmarshal(data []byte) error
+}
+
+type NodeMarshalUnmarshaler[T comparable] interface {
+	Node[T]
+	Marshal() ([]byte, error)
+	Unmarshal(data []byte) error
+}
+
+func Marshal[T comparable](root NodeMarshaler[T]) ([]byte, error) {
+	var buf bytes.Buffer
+	if root == nil {
+		return nil, nil
+	}
+	panic("TODO")
+}
+
+func Unmarshal[T comparable](root NodeUnmarshaler[T], data []byte) error {
+	if len(data) == 0 {
+		return nil
+	}
+	panic("TODO")
+}
 
 // Options represents a options for stringify Node
 type Options struct {
@@ -37,7 +75,7 @@ func (options *Options) fix() {
 }
 
 // Stringify converts node to string
-func Stringify[T comparable](node container.Node[T], options *Options) string {
+func Stringify[T comparable](node Node[T], options *Options) string {
 	if options == nil {
 		options = defaultOptions
 	} else {
@@ -68,7 +106,7 @@ func recursivelyPrintNode[T comparable](
 	isLast bool,
 	options *Options,
 ) {
-	var node, ok = x.(container.Node[T])
+	var node, ok = x.(Node[T])
 	if !ok {
 		return
 	}

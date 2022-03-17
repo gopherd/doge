@@ -6,7 +6,7 @@ import (
 
 	"github.com/gopherd/doge/constraints"
 	"github.com/gopherd/doge/container/internal/rbtree"
-	"github.com/gopherd/doge/container/stringify"
+	"github.com/gopherd/doge/container/tree"
 	"github.com/gopherd/doge/operator"
 )
 
@@ -97,9 +97,9 @@ func (s Set[K]) Last() *SetIterator[K] {
 	return (*SetIterator[K])((rbtree.RBTree[K, empty])(s).Last())
 }
 
-// Stringify pretty stringify the set with specified options or nil
-func (s Set[K]) Stringify(options *stringify.Options) string {
-	return stringify.Stringify[*setNode[K]]((*setNode[K])((rbtree.RBTree[K, empty])(s).Root()), options)
+// Stringify pretty stringifies the set with specified options or nil
+func (s Set[K]) Stringify(options *tree.Options) string {
+	return tree.Stringify[*setNode[K]]((*setNode[K])((rbtree.RBTree[K, empty])(s).Root()), options)
 }
 
 // String returns content of the set as a plain string

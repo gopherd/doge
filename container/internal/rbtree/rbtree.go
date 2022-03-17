@@ -496,12 +496,9 @@ func (node *Node[K, V]) Next() *Node[K, V] {
 		return node.right.smallest()
 	}
 	parent := node.parent
-	for node != parent.left {
+	for parent != nil && node != parent.left {
 		node = parent
 		parent = node.parent
-		if parent == nil {
-			return nil
-		}
 	}
 	return parent
 }

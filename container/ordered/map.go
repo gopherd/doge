@@ -6,7 +6,7 @@ import (
 
 	"github.com/gopherd/doge/constraints"
 	"github.com/gopherd/doge/container/internal/rbtree"
-	"github.com/gopherd/doge/container/stringify"
+	"github.com/gopherd/doge/container/tree"
 	"github.com/gopherd/doge/operator"
 )
 
@@ -112,8 +112,8 @@ func (m Map[K, V]) Last() *MapIterator[K, V] {
 }
 
 // Stringify pretty stringifies the map with specified options or nil
-func (m Map[K, V]) Stringify(options *stringify.Options) string {
-	return stringify.Stringify[*mapNode[K, V]]((*mapNode[K, V])((rbtree.RBTree[K, V])(m).Root()), options)
+func (m Map[K, V]) Stringify(options *tree.Options) string {
+	return tree.Stringify[*mapNode[K, V]]((*mapNode[K, V])((rbtree.RBTree[K, V])(m).Root()), options)
 }
 
 // String returns content of the set as a plain string

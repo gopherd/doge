@@ -1,7 +1,7 @@
 package trie
 
 import (
-	"github.com/gopherd/doge/container/stringify"
+	"github.com/gopherd/doge/container/tree"
 )
 
 // Trie implements a prefix-tree
@@ -22,8 +22,8 @@ func (trie *Trie) String() string {
 }
 
 // String formats trie as a string
-func (trie *Trie) Stringify(options *stringify.Options) string {
-	return stringify.Stringify[*node](trie.root, options)
+func (trie *Trie) Stringify(options *tree.Options) string {
+	return tree.Stringify[*node](trie.root, options)
 }
 
 func (trie *Trie) search(prefix string) (lastMatchNode *node, deep int, match bool) {
