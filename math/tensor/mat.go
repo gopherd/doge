@@ -196,6 +196,20 @@ func (mat Matrix[T]) Dot(other Matrix[T]) Matrix[T] {
 	return result
 }
 
+func (mat Matrix[T]) DotVec(vec Vector[T]) Vector[T] {
+	if mat.Columns() != vec.Dim() {
+		panic("matrix.dotVec: size mismatched")
+	}
+	var m, n = mat.Rows(), mat.Columns()
+	var result = make(Vector[T], m)
+	for i := 0; i < m; i++ {
+		for j := 0; j < n; j++ {
+			result[i] += mat.Get(i, j) * vec.Get(j)
+		}
+	}
+	return result
+}
+
 func (mat Matrix[T]) Invert() Matrix[T] {
 	panic("TODO: matrix.invert not implemented")
 }
