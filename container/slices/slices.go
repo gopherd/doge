@@ -239,6 +239,27 @@ func Shuffle[S ~[]T, T any](s S) S {
 	return s
 }
 
+func ShuffleN[S ~[]T, T any](s S, n int) S {
+	var size = len(s)
+	if n < 0 || n > size {
+		panic("invalid argument to ShuffleN")
+	}
+	if n == size {
+		return Shuffle(s)
+	}
+	for i := 0; i < n; i++ {
+		var x = size - i
+		var j int
+		if x > 1<<31-1 {
+			j = int(rand.Int63n(int64(x))) + i
+		} else {
+			j = int(rand.Int31n(int32(x))) + i
+		}
+		s[i], s[j] = s[j], s[i]
+	}
+	return s
+}
+
 // Clone returns a copy of s
 func Clone[S ~[]T, T any](s S) S {
 	if s == nil {
