@@ -2,9 +2,12 @@ package tree
 
 import (
 	"bytes"
+	"container/list"
+	"encoding/binary"
 	"fmt"
 	"io"
 
+	"github.com/gopherd/doge/container/pair"
 	"github.com/gopherd/doge/operator"
 )
 
@@ -21,15 +24,24 @@ type NodeMarshaler[T comparable] interface {
 	Marshal() ([]byte, error)
 }
 
-type NodeUnmarshaler[T comparable] interface {
-	Node[T]
-	Unmarshal(data []byte) error
-}
-
-type NodeMarshalUnmarshaler[T comparable] interface {
-	Node[T]
-	Marshal() ([]byte, error)
-	Unmarshal(data []byte) error
+func encodeNode[T comparable](w io.Writer, id, parent uint32, node NodeMarshaler[T]) error {
+	content, err := node.Marshal()
+	if err != nil {
+		return err
+	}
+	// header: {size: uint32, id: uint32, parent: uint32}
+	if err := binary.Write(w, binary.LittleEndian, uint32(len(content))); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, uint32(id)); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, uint32(parent)); err != nil {
+		return err
+	}
+	// content
+	_, err = w.Write(content)
+	return err
 }
 
 func Marshal[T comparable](root NodeMarshaler[T]) ([]byte, error) {
@@ -37,14 +49,23 @@ func Marshal[T comparable](root NodeMarshaler[T]) ([]byte, error) {
 	if root == nil {
 		return nil, nil
 	}
-	panic("TODO")
-}
-
-func Unmarshal[T comparable](root NodeUnmarshaler[T], data []byte) error {
-	if len(data) == 0 {
-		return nil
+	var id uint32
+	var openSet = list.New()
+	openSet.PushBack(pair.Make(uint32(0), root))
+	for openSet.Len() > 0 {
+		var front = openSet.Front()
+		var p = front.Value.(pair.Pair[uint32, NodeMarshaler[T]])
+		openSet.Remove(front)
+		id++
+		if err := encodeNode(&buf, id, p.First, p.Second); err != nil {
+			return nil, err
+		}
+		for i, n := 0, p.Second.NumChild(); i < n; i++ {
+			var child = p.Second.GetChildByIndex(i)
+			openSet.PushBack(pair.Make(id, child))
+		}
 	}
-	panic("TODO")
+	return buf.Bytes(), nil
 }
 
 // Options represents a options for stringify Node
