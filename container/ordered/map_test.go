@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/gopherd/doge/container"
 	"github.com/gopherd/doge/container/ordered"
+	"github.com/gopherd/doge/container/tree"
 	"github.com/gopherd/doge/operator"
 )
 
@@ -27,7 +27,7 @@ func ExampleMap() {
 	}
 
 	fmt.Print("default:\n" + m.Stringify(nil))
-	fmt.Print("custom:\n" + m.Stringify(&container.StringifyOptions{
+	fmt.Print("custom:\n" + m.Stringify(&tree.Options{
 		Prefix:     "... ",
 		Parent:     "|   ",
 		Branch:     "|-- ",

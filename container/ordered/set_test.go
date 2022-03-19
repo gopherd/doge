@@ -5,8 +5,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/gopherd/doge/container"
 	"github.com/gopherd/doge/container/ordered"
+	"github.com/gopherd/doge/container/tree"
 	"github.com/gopherd/doge/operator"
 )
 
@@ -26,7 +26,7 @@ func ExampleSet() {
 	}
 
 	fmt.Print("default:\n" + s.Stringify(nil))
-	fmt.Print("custom:\n" + s.Stringify(&container.StringifyOptions{
+	fmt.Print("custom:\n" + s.Stringify(&tree.Options{
 		Prefix:     "... ",
 		Parent:     "|   ",
 		Branch:     "|-- ",

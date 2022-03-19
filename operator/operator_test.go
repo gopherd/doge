@@ -1,7 +1,6 @@
 package operator_test
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/gopherd/doge/operator"
@@ -31,17 +30,5 @@ func TestOr(t *testing.T) {
 	}
 	if v := operator.Or(false, false); v != false {
 		t.Fatalf("want false, but got %v", v)
-	}
-
-	var errTest1 = errors.New("test1")
-	var errTest2 = errors.New("test2")
-	if v := operator.Or(errTest1, nil); v != errTest1 {
-		t.Fatalf("want %v, but got %v", errTest1, v)
-	}
-	if v := operator.Or(nil, errTest1); v != errTest1 {
-		t.Fatalf("want %v, but got %v", errTest1, v)
-	}
-	if v := operator.Or(errTest1, errTest2); v != errTest1 {
-		t.Fatalf("want %v, but got %v", errTest1, v)
 	}
 }
