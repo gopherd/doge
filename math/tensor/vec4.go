@@ -6,6 +6,7 @@ import (
 
 	"github.com/gopherd/doge/constraints"
 	"github.com/gopherd/doge/container/tuple"
+	"github.com/gopherd/doge/math/mathutil"
 	"github.com/gopherd/doge/operator"
 )
 
@@ -17,7 +18,7 @@ func Vec4[T constraints.SignedReal](x, y, z, w T) Vector4[T] {
 	return Vector4[T]{x, y, z, w}
 }
 
-// String convers vector as a string
+// String converts vector as a string
 func (vec Vector4[T]) String() string {
 	return fmt.Sprintf("(%v,%v,%v,%v)", vec[0], vec[1], vec[2], vec[3])
 }
@@ -103,11 +104,27 @@ func (vec Vector4[T]) Norm() T {
 
 // Normp computes p-norm
 func (vec Vector4[T]) Normp(p T) T {
-	var sum float64
-	for i := range vec {
-		sum += math.Pow(float64(vec[i]), float64(p))
+	switch p {
+	case 0:
+		return 4 -
+			mathutil.IsZero[T](vec[0]) -
+			mathutil.IsZero[T](vec[1]) -
+			mathutil.IsZero[T](vec[2]) -
+			mathutil.IsZero[T](vec[3])
+	case 1:
+		return mathutil.Abs(vec[0]) +
+			mathutil.Abs(vec[1]) +
+			mathutil.Abs(vec[2]) +
+			mathutil.Abs(vec[3])
+	case 2:
+		return vec.Norm()
+	default:
+		var sum float64
+		for i := range vec {
+			sum += math.Pow(float64(vec[i]), float64(p))
+		}
+		return T(math.Pow(sum, 1.0/float64(p)))
 	}
-	return T(math.Pow(sum, 1.0/float64(p)))
 }
 
 //----------------------------------------------

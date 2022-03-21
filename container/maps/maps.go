@@ -29,6 +29,22 @@ func Values[M ~map[K]V, K comparable, V any](m M) []V {
 	return s
 }
 
+// Map creates a slice and inserts values of m by function f
+func Map[
+	D ~[]T,
+	M ~map[K]V,
+	F ~func(K, V) T,
+	K comparable,
+	V any,
+	T any,
+](m M, f F) D {
+	d := make(D, 0, len(m))
+	for k, v := range m {
+		d = append(d, f(k, v))
+	}
+	return d
+}
+
 // MinKey retrieves mininum key of map
 func MinKey[M ~map[K]V, K constraints.Ordered, V any](m M) K {
 	var min K
@@ -135,25 +151,156 @@ func MinmaxValue[M ~map[K]V, K comparable, V constraints.Ordered](m M) (min, max
 	return
 }
 
-// Map creates a new map which values mapping from key-value pair of m by function f
-func Map[
+// MinKeyFunc retrieves mininum key of map
+func MinKeyFunc[
 	M ~map[K]V,
-	F ~func(K, V) (T, U),
+	F ~func(K, V) T,
 	K comparable,
 	V any,
-	T comparable,
-	U any,
-](m M, f F) map[T]U {
-	var d = make(map[T]U, len(m))
-	for k, v := range m {
-		t, u := f(k, v)
-		d[t] = u
+	T constraints.Ordered,
+](m M, f F) T {
+	var min T
+	if m == nil {
+		return min
 	}
-	return d
+	var n int
+	for k, v := range m {
+		t := f(k, v)
+		if n == 0 || t < min {
+			min = t
+		}
+		n++
+	}
+	return min
 }
 
-// MapTo inserts pairs mapping from key-value pair of m by function f
-func MapTo[
+// MaxKeyFunc retrieves maxinum key of map
+func MaxKeyFunc[
+	M ~map[K]V,
+	F ~func(K, V) T,
+	K comparable,
+	V any,
+	T constraints.Ordered,
+](m M, f F) T {
+	var max T
+	if m == nil {
+		return max
+	}
+	var n int
+	for k, v := range m {
+		t := f(k, v)
+		if n == 0 || t > max {
+			max = t
+		}
+		n++
+	}
+	return max
+}
+
+// MinmaxKeyFunc retrieves mininum and maxinum key of map
+func MinmaxKeyFunc[
+	M ~map[K]V,
+	F ~func(K, V) T,
+	K comparable,
+	V any,
+	T constraints.Ordered,
+](m M, f F) (min, max T) {
+	if m == nil {
+		return
+	}
+	var n int
+	for k, v := range m {
+		t := f(k, v)
+		if n == 0 || t < min {
+			min = t
+		}
+		if n == 0 || t > max {
+			max = t
+		}
+		n++
+	}
+	return
+}
+
+// MinValueFunc retrieves mininum value of map
+func MinValueFunc[
+	M ~map[K]V,
+	F ~func(K, V) T,
+	K comparable,
+	V any,
+	T constraints.Ordered,
+](m M, f F) pair.Pair[K, T] {
+	var key K
+	var min T
+	if m == nil {
+		return pair.Make(key, min)
+	}
+	var n int
+	for k, v := range m {
+		t := f(k, v)
+		if n == 0 || t < min {
+			key = k
+			min = t
+		}
+		n++
+	}
+	return pair.Make(key, min)
+}
+
+// MaxValueFunc retrieves mininum value of map
+func MaxValueFunc[
+	M ~map[K]V,
+	F ~func(K, V) T,
+	K comparable,
+	V any,
+	T constraints.Ordered,
+](m M, f F) pair.Pair[K, T] {
+	var key K
+	var max T
+	if m == nil {
+		return pair.Make(key, max)
+	}
+	var n int
+	for k, v := range m {
+		t := f(k, v)
+		if n == 0 || t > max {
+			key = k
+			max = t
+		}
+		n++
+	}
+	return pair.Make(key, max)
+}
+
+// MinmaxValueFunc retrieves mininum and maxinum value of map
+func MinmaxValueFunc[
+	M ~map[K]V,
+	F ~func(K, V) T,
+	K comparable,
+	V any,
+	T constraints.Ordered,
+](m M, f F) (min, max pair.Pair[K, T]) {
+	if m == nil {
+		return
+	}
+	var n int
+	for k, v := range m {
+		t := f(k, v)
+		if n == 0 || t < min.Second {
+			min.First = k
+			min.Second = t
+		}
+		if n == 0 || t > max.Second {
+			max.First = k
+			max.Second = t
+		}
+		n++
+	}
+	return
+}
+
+// CopyFunc inserts pairs mapping from key-value pair of m by function f
+func CopyFunc[
 	D ~map[T]U,
 	M ~map[K]V,
 	F ~func(K, V) (T, U),
@@ -162,9 +309,6 @@ func MapTo[
 	T comparable,
 	U any,
 ](d D, m M, f F) D {
-	if d == nil {
-		d = make(D, len(m))
-	}
 	for k, v := range m {
 		t, u := f(k, v)
 		d[t] = u

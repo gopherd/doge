@@ -42,32 +42,85 @@ func Minmax[S ~[]T, T constraints.Ordered](s S) T {
 	return max
 }
 
-// Map creates a new slice which values mapping from s by function f
+// MinFunc retrieves mininum value of slice
+func MinFunc[
+	S ~[]T,
+	F ~func(T) U,
+	T any,
+	U constraints.Ordered,
+](s S, f F) U {
+	var min U
+	for i := range s {
+		v := f(s[i])
+		if i == 0 || v < min {
+			min = v
+		}
+	}
+	return min
+}
+
+// MaxFunc retrieves maxinum value of slice
+func MaxFunc[
+	S ~[]T,
+	F ~func(T) U,
+	T any,
+	U constraints.Ordered,
+](s S, f F) U {
+	var max U
+	for i := range s {
+		v := f(s[i])
+		if i == 0 || v > max {
+			max = v
+		}
+	}
+	return max
+}
+
+// MinmaxFunc retrieves mininum and maxinum value of slice
+func MinmaxFunc[
+	S ~[]T,
+	F ~func(T) U,
+	T any,
+	U constraints.Ordered,
+](s S, f F) U {
+	var min, max U
+	for i := range s {
+		v := f(s[i])
+		if i == 0 || v < min {
+			min = v
+		}
+		if i == 0 || v > max {
+			max = v
+		}
+	}
+	return max
+}
+
+// Map fixes elements of slice by function f
 func Map[
 	S ~[]T,
 	F ~func(T) U,
 	T any,
 	U any,
 ](s S, f F) []U {
-	var d = make([]U, len(s))
+	d := make([]U, len(s))
 	for i, v := range s {
 		d[i] = f(v)
 	}
 	return d
 }
 
-// MapAppend appends mapped values by function f to slice dst
-func MapAppend[
+// CopyFunc copies mapped values by function f to slice d
+func CopyFunc[
 	D ~[]U,
 	S ~[]T,
 	F ~func(T) U,
 	T any,
 	U any,
-](d D, s S, f F) D {
-	for _, v := range s {
-		d = append(d, f(v))
+](d D, s S, f F) {
+	for i, v := range s {
+		d[i] = f(v)
 	}
-	return d
 }
 
 // Sum sums slice
@@ -91,6 +144,19 @@ func SumFunc[
 		sum += f(v)
 	}
 	return sum
+}
+
+// Accumulate accumulates slice from begin by function f
+func Accumulate[
+	S ~[]T,
+	F ~func(U, T) U,
+	T constraints.Number | ~string,
+	U constraints.Number | ~string,
+](s S, f F, begin U) U {
+	for _, v := range s {
+		begin = f(begin, v)
+	}
+	return begin
 }
 
 // Mean computes mean value of slice

@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/gopherd/doge/constraints"
+	"github.com/gopherd/doge/container/slices"
 	"github.com/gopherd/doge/container/tuple"
 	"github.com/gopherd/doge/math/mathutil"
 	"github.com/gopherd/doge/operator"
@@ -68,7 +69,7 @@ func Linspace[T constraints.SignedReal](from, to T, n int) Vector[T] {
 	return vec
 }
 
-// String convers vector as a string
+// String converts vector as a string
 func (vec Vector[T]) String() string {
 	var buf bytes.Buffer
 	buf.WriteByte('(')
@@ -181,9 +182,18 @@ func (vec Vector[T]) Norm() T {
 
 // Normp computes p-norm
 func (vec Vector[T]) Normp(p T) T {
-	var sum float64
-	for i := range vec {
-		sum += math.Pow(float64(vec[i]), float64(p))
+	switch p {
+	case 0:
+		return T(len(vec)) - slices.SumFunc(vec, mathutil.IsZero[T])
+	case 1:
+		return slices.SumFunc(vec, mathutil.Abs[T])
+	case 2:
+		return vec.Norm()
+	default:
+		var sum float64
+		for i := range vec {
+			sum += math.Pow(float64(vec[i]), float64(p))
+		}
+		return T(math.Pow(sum, 1.0/float64(p)))
 	}
-	return T(math.Pow(sum, 1.0/float64(p)))
 }

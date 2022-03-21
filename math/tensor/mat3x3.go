@@ -6,7 +6,9 @@ import (
 	"math"
 
 	"github.com/gopherd/doge/constraints"
+	"github.com/gopherd/doge/container/slices"
 	"github.com/gopherd/doge/container/tuple"
+	"github.com/gopherd/doge/math/mathutil"
 )
 
 // Matrix3 represents a 3x3 matrix
@@ -35,7 +37,7 @@ func Identity3[T constraints.SignedReal]() Matrix3[T] {
 	}
 }
 
-// String convers matrix as a string
+// String converts matrix as a string
 func (mat Matrix3[T]) String() string {
 	const dim = 3
 	var buf bytes.Buffer
@@ -232,11 +234,20 @@ func (mat Matrix3[T]) Norm() T {
 }
 
 func (mat Matrix3[T]) Normp(p T) T {
-	var sum float64
-	for _, v := range mat {
-		sum += math.Pow(float64(v), float64(p))
+	switch p {
+	case 0:
+		return T(len(mat)) - slices.SumFunc(mat[:], mathutil.IsZero[T])
+	case 1:
+		return slices.SumFunc(mat[:], mathutil.Abs[T])
+	case 2:
+		return mat.Norm()
+	default:
+		var sum float64
+		for _, v := range mat {
+			sum += math.Pow(float64(v), float64(p))
+		}
+		return T(math.Pow(sum, 1/float64(p)))
 	}
-	return T(math.Pow(sum, 1/float64(p)))
 }
 
 //----------------------------------------------

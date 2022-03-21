@@ -6,7 +6,7 @@ import (
 
 	"github.com/gopherd/doge/constraints"
 	"github.com/gopherd/doge/container/tuple"
-	"github.com/gopherd/doge/math/functional"
+	"github.com/gopherd/doge/math/mathutil"
 	"github.com/gopherd/doge/operator"
 )
 
@@ -45,7 +45,7 @@ func IdentityN[T constraints.SignedReal](n int) Matrix[T] {
 	return m
 }
 
-// String convers matrix as a string
+// String converts matrix as a string
 func (mat Matrix[T]) String() string {
 	var buf bytes.Buffer
 	buf.WriteByte('[')
@@ -152,23 +152,23 @@ func (mat Matrix[T]) binaryElementwise(other Matrix[T], op func(T, T) T) Matrix[
 }
 
 func (mat Matrix[T]) Add(other Matrix[T]) Matrix[T] {
-	return mat.binaryElementwise(other, functional.Add[T])
+	return mat.binaryElementwise(other, mathutil.Add[T])
 }
 
 func (mat Matrix[T]) Sub(other Matrix[T]) Matrix[T] {
-	return mat.binaryElementwise(other, functional.Sub[T])
+	return mat.binaryElementwise(other, mathutil.Sub[T])
 }
 
 func (mat Matrix[T]) Mul(other Matrix[T]) Matrix[T] {
-	return mat.binaryElementwise(other, functional.Mul[T])
+	return mat.binaryElementwise(other, mathutil.Mul[T])
 }
 
 func (mat Matrix[T]) Div(other Matrix[T]) Matrix[T] {
-	return mat.binaryElementwise(other, functional.Div[T])
+	return mat.binaryElementwise(other, mathutil.Div[T])
 }
 
 func (mat Matrix[T]) Scale(x T) Matrix[T] {
-	return mat.unaryElementwise(x, functional.Mul[T])
+	return mat.unaryElementwise(x, mathutil.Mul[T])
 }
 
 func (mat Matrix[T]) Normalize() Matrix[T] {
