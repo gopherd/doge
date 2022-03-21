@@ -6,6 +6,20 @@ type Tuple[T any] interface {
 	At(i int) T
 }
 
+// Equal reports whether t1 == t2
+func Equal[T comparable](t1, t2 Tuple[T]) bool {
+	var n = t1.Len()
+	if n != t2.Len() {
+		return false
+	}
+	for i := 0; i < n; i++ {
+		if t1.At(i) != t2.At(i) {
+			return false
+		}
+	}
+	return true
+}
+
 // Make create a tuple by parameters
 func Make[T any](x ...T) Tuple[T] {
 	switch len(x) {

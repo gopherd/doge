@@ -5,18 +5,22 @@ import (
 	"github.com/gopherd/doge/container/tuple"
 )
 
+// Shape represents shape of tensor
 type Shape = tuple.Tuple[int]
 
+// Index implements a 1-dim shape
 type Index int
 
 func (i Index) Len() int     { return 1 }
 func (i Index) At(j int) int { return int(i) }
 
+// Index implements a n-dim shape
 type Indices []int
 
 func (i Indices) Len() int     { return len(i) }
 func (i Indices) At(j int) int { return i[j] }
 
+// Tensor represents a tensor
 type Tensor[T constraints.SignedReal] interface {
 	Shape() tuple.Tuple[int]
 	At(index tuple.Tuple[int]) T
@@ -27,7 +31,7 @@ type Tensor[T constraints.SignedReal] interface {
 func Create[T constraints.SignedReal](shape Shape) Tensor[T] {
 	return tensor[T]{
 		shape: shape,
-		data:  make(Vector[T], sizeof(shape)),
+		data:  make(Vector[T], SizeOf(shape)),
 	}
 }
 
@@ -44,7 +48,7 @@ func (t tensor[T]) Shape() Shape {
 
 // At implements Tensor At method
 func (t tensor[T]) At(index Shape) T {
-	return t.data[offsetof(t.shape, index)]
+	return t.data[OffsetOf(t.shape, index)]
 }
 
 // Sum implements Tensor Sum method
@@ -54,31 +58,53 @@ func (t tensor[T]) Sum() T {
 
 // set updates value by index
 func (t *tensor[T]) set(index Shape, value T) {
-	t.data[offsetof(t.shape, index)] = value
+	t.data[OffsetOf(t.shape, index)] = value
 }
 
-func offsetof(shape, index Shape) int {
+// OffsetOf calculates offset of index in shape
+func OffsetOf(shape, index Shape) int {
 	var off int
 	var prev = 1
 	for i, n := 0, index.Len(); i < n; i++ {
 		off += index.At(i) * prev
-		prev = shape.At(i)
+		prev *= shape.At(i)
 	}
 	return off
 }
 
-func sizeof(shape Shape) int {
+// IndexOf calculates index of offset in shape and returns indices
+func IndexOf(shape Shape, offset int, indices Indices) Indices {
+	if len(indices) != shape.Len() {
+		indices = make(Indices, shape.Len())
+	}
+	var size = SizeOf(shape)
+	for i := len(indices) - 1; i >= 0; i-- {
+		if offset == 0 {
+			indices[i] = 0
+		} else {
+			size /= shape.At(i)
+			var value = offset / size
+			indices[i] = value
+			offset -= value * size
+		}
+	}
+	return indices
+}
+
+// SizeOf calculates size of shape
+func SizeOf(shape Shape) int {
 	if shape.Len() == 0 {
 		return 1
 	}
-	var size int
+	var size = 1
 	for i, n := 0, shape.Len(); i < n; i++ {
 		size *= shape.At(i)
 	}
 	return size
 }
 
-func next(shape Shape, index Indices) Indices {
+// Next retrieves next index
+func Next(shape Shape, index Indices) Indices {
 	for i, x := range index {
 		var up = shape.At(i)
 		if x+1 > up {
@@ -98,6 +124,7 @@ func next(shape Shape, index Indices) Indices {
 		if j == len(index) {
 			return nil
 		}
+		index[j]++
 		for k := i; k < j; k++ {
 			index[k] = 0
 		}
@@ -172,13 +199,13 @@ func Dot[T constraints.SignedReal](a, b Tensor[T]) Tensor[T] {
 	// c = a‧b
 	var c = tensor[T]{
 		shape: shape,
-		data:  make(Vector[T], sizeof(shape)),
+		data:  make(Vector[T], SizeOf(shape)),
 	}
 	var indices = make(Indices, shape.Len())
 	var aindices = make(Indices, alen)
 	var bindices = make(Indices, blen)
 	for len(indices) > 0 {
-		indices = next(shape, indices)
+		indices = Next(shape, indices)
 		copy(aindices[:alen-1], indices[:alen-1])
 		copy(bindices[1:], indices[alen-1:])
 		var sum T
