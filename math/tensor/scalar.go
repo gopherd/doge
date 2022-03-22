@@ -23,7 +23,10 @@ func (s scalar[T]) Shape() Shape {
 
 // At implements Tensor At method
 func (s scalar[T]) At(index Shape) T {
-	panic("out of range")
+	if index.Len() > 0 {
+		panic("out of range")
+	}
+	return s.x
 }
 
 // Sum implements Tensor Sum method

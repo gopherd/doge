@@ -29,35 +29,35 @@ type Tensor[T constraints.SignedReal] interface {
 
 // Create creates a tensor by shape
 func Create[T constraints.SignedReal](shape Shape) Tensor[T] {
-	return tensor[T]{
+	return ndarray[T]{
 		shape: shape,
 		data:  make(Vector[T], SizeOf(shape)),
 	}
 }
 
-// tensor implements Tensor with shape
-type tensor[T constraints.SignedReal] struct {
+// ndarray implements Tensor with shape
+type ndarray[T constraints.SignedReal] struct {
 	shape Shape
 	data  Vector[T]
 }
 
 // Shape implements Tensor Shape method
-func (t tensor[T]) Shape() Shape {
+func (t ndarray[T]) Shape() Shape {
 	return t.shape
 }
 
 // At implements Tensor At method
-func (t tensor[T]) At(index Shape) T {
+func (t ndarray[T]) At(index Shape) T {
 	return t.data[OffsetOf(t.shape, index)]
 }
 
 // Sum implements Tensor Sum method
-func (t tensor[T]) Sum() T {
+func (t ndarray[T]) Sum() T {
 	return t.data.Sum()
 }
 
 // set updates value by index
-func (t *tensor[T]) set(index Shape, value T) {
+func (t *ndarray[T]) set(index Shape, value T) {
 	t.data[OffsetOf(t.shape, index)] = value
 }
 
@@ -197,7 +197,7 @@ func Dot[T constraints.SignedReal](a, b Tensor[T]) Tensor[T] {
 	}
 
 	// c = a‧b
-	var c = tensor[T]{
+	var c = ndarray[T]{
 		shape: shape,
 		data:  make(Vector[T], SizeOf(shape)),
 	}
@@ -214,6 +214,28 @@ func Dot[T constraints.SignedReal](a, b Tensor[T]) Tensor[T] {
 			bindices[0] = i
 			sum += a.At(aindices) * b.At(bindices)
 			c.set(indices, sum)
+		}
+	}
+	return c
+}
+
+// Reshape reshapes the tensor
+func Reshape[T constraints.SignedReal](tensor Tensor[T], shape Shape) Tensor[T] {
+	var c = ndarray[T]{
+		shape: shape,
+		data:  make(Vector[T], SizeOf(shape)),
+	}
+	var tshape = tensor.Shape()
+	var tsize = SizeOf(tshape)
+	var indices = make(Indices, tshape.Len())
+	for i := range c.data {
+		if i >= tsize {
+			break
+		}
+		c.data[i] = tensor.At(indices)
+		indices = Next(tshape, indices)
+		if len(indices) == 0 {
+			break
 		}
 	}
 	return c
