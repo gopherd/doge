@@ -19,7 +19,7 @@ func IsExist(err error) bool {
 // Discovery represents a interface for service discovery
 type Discovery interface {
 	// Register registers a service, if nx is true, the id must not exist.
-	// Otherwise, ErrExist returned. If ttl > 0, the service has a expires time.
+	// Otherwise, ErrExist returned. If ttl > 0, the service has an expires duration.
 	Register(ctx context.Context, name, id, content string, nx bool, ttl time.Duration) error
 	// Unregister unregisters a service
 	Unregister(ctx context.Context, name, id string) error
@@ -27,7 +27,7 @@ type Discovery interface {
 	Find(ctx context.Context, name, id string) (content string, err error)
 	// Resolve resolves any one service by name
 	Resolve(ctx context.Context, name string) (id, content string, err error)
-	// Resolve resolves all services by name
+	// ResolveAll resolves all services by name
 	ResolveAll(ctx context.Context, name string) (map[string]string, error)
 }
 

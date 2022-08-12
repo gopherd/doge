@@ -113,7 +113,10 @@ func (m *Manager) Init() error {
 		name := mod.Name()
 		log.Info().String("module", name).Print("module initializing")
 		if err := mod.Init(); err != nil {
-			log.Info().String("module", name).Error("error", err).Print("module initialize error")
+			log.Info().
+				String("module", name).
+				Error("error", err).
+				Print("module initialize error")
 			return err
 		}
 		log.Info().String("module", name).Print("module initialized")

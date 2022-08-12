@@ -7,17 +7,16 @@ import (
 	"os"
 	"reflect"
 	"strconv"
-	"strings"
 	"sync/atomic"
 	"time"
 	"unsafe"
 
-	"github.com/google/uuid"
 	"github.com/gopherd/log"
 
 	"github.com/gopherd/doge/build"
 	"github.com/gopherd/doge/config"
 	"github.com/gopherd/doge/erron"
+	"github.com/gopherd/doge/internal/uuid"
 	"github.com/gopherd/doge/mq"
 	"github.com/gopherd/doge/os/signal"
 	"github.com/gopherd/doge/service/discovery"
@@ -189,7 +188,7 @@ type BasicService struct {
 func NewBasicService(self Service, cfg config.Configurator) *BasicService {
 	s := &BasicService{
 		self:    self,
-		uuid:    strings.ReplaceAll(uuid.NewString(), "-", ""),
+		uuid:    uuid.NewString(),
 		modules: module.NewManager(),
 	}
 	s.config.ptr.Store(cfg)
@@ -279,26 +278,25 @@ func (app *BasicService) register(nx bool) error {
 			closed := old.State.State == Closed
 			expired := old.State.Updated+2*int64(app.tickers.keepalive.Interval()/time.Millisecond) < now
 			if !closed {
-				if expired {
-					if !app.force {
-						log.Error().
-							String("name", app.Name()).
-							Int64("id", app.ID()).
-							String("uuid", app.uuid).
-							Print("service found and not closed but expired, you can startup with command line flag -F")
-						return erron.New("service not closed")
-					}
-					log.Warn().
-						String("name", app.Name()).
-						Int64("id", app.ID()).
-						Print("force startup service")
-				} else {
+				if !expired {
 					log.Warn().
 						String("name", app.Name()).
 						Int64("id", app.ID()).
 						Print("service not closed, stop it first!")
 					return erron.New("service not closed")
 				}
+				if !app.force {
+					log.Error().
+						String("name", app.Name()).
+						Int64("id", app.ID()).
+						String("uuid", app.uuid).
+						Print("running service expired, startup with command line flag -F")
+					return erron.New("service not closed")
+				}
+				log.Warn().
+					String("name", app.Name()).
+					Int64("id", app.ID()).
+					Print("force startup service")
 			}
 			if err := app.discovery.Unregister(context.Background(), app.Name(), id); err != nil {
 				return err
@@ -350,7 +348,7 @@ func (app *BasicService) reloadCfg() {
 func (app *BasicService) Init() error {
 	cfg := app.config.ptr.Load().(config.Configurator)
 	defaultSource := build.Name() + ".conf"
-	flag.CommandLine.BoolVar(&app.force, "F", false, "Whether force startup service while it not closed but expired")
+	flag.CommandLine.BoolVar(&app.force, "F", false, "Whether force startup expired running service")
 	err := config.Init(flag.CommandLine, cfg, config.WithDefaultSource(defaultSource))
 	if err != nil {
 		return erron.Throw(err)
