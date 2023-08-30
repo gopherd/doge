@@ -1,3 +1,6 @@
+// package uuid implements an UUID allocator, it's used to internal only.
+//
+// NOTE: This package was copied from @https://github.com/google/uuid without unused parts.
 package uuid
 
 import (
@@ -28,6 +31,11 @@ func encodeHex(dst []byte, uuid UUID) {
 	hex.Encode(dst[24:], uuid[10:])
 }
 
+// New returns a Random (Version 4) UUID.
+func New() (UUID, error) {
+	return NewFromReader(rand.Reader)
+}
+
 // NewString returns a Random (Version 4) UUID string
 func NewString() string {
 	uuid, err := New()
@@ -35,11 +43,6 @@ func NewString() string {
 		panic(err)
 	}
 	return uuid.String()
-}
-
-// New returns a Random (Version 4) UUID.
-func New() (UUID, error) {
-	return NewFromReader(rand.Reader)
 }
 
 // NewFromReader returns a UUID based on bytes read from a given io.Reader.

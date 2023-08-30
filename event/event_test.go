@@ -1,6 +1,7 @@
 package event_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/gopherd/doge/event"
@@ -16,10 +17,10 @@ func (e testStringEvent) Type() string {
 func TestDispatchEvent(t *testing.T) {
 	var fired bool
 	var dispatcher event.Dispatcher[string]
-	dispatcher.AddEventListener(event.Listen("test", func(e testStringEvent) {
+	dispatcher.AddListener(event.Listen("test", func(e testStringEvent) {
 		fired = true
 	}))
-	dispatcher.DispatchEvent(testStringEvent{})
+	dispatcher.Fire(testStringEvent{})
 	if !fired {
 		t.Fatal("event not fired")
 	}
@@ -28,10 +29,10 @@ func TestDispatchEvent(t *testing.T) {
 func TestDispatchEventPointer(t *testing.T) {
 	var fired bool
 	var dispatcher event.Dispatcher[string]
-	dispatcher.AddEventListener(event.Listen("test", func(e *testStringEvent) {
+	dispatcher.AddListener(event.Listen("test", func(e *testStringEvent) {
 		fired = true
 	}))
-	dispatcher.DispatchEvent(&testStringEvent{})
+	dispatcher.Fire(&testStringEvent{})
 	if !fired {
 		t.Fatal("event not fired")
 	}
@@ -47,10 +48,31 @@ func (e testIntEvent) Type() int {
 func TestDispatchIntEvent(t *testing.T) {
 	var fired bool
 	var dispatcher event.Dispatcher[int]
-	dispatcher.AddEventListener(event.Listen(1, func(e testIntEvent) {
+	dispatcher.AddListener(event.Listen(1, func(e testIntEvent) {
 		fired = true
 	}))
-	dispatcher.DispatchEvent(testIntEvent{})
+	dispatcher.Fire(testIntEvent{})
+	if !fired {
+		t.Fatal("event not fired")
+	}
+}
+
+type testTypeEvent struct {
+}
+
+var eventType = reflect.TypeOf((*testTypeEvent)(nil))
+
+func (e *testTypeEvent) Type() reflect.Type {
+	return eventType
+}
+
+func TestDispatchTypeEvent(t *testing.T) {
+	var fired bool
+	var dispatcher event.Dispatcher[reflect.Type]
+	dispatcher.AddListener(event.Listen(eventType, func(e *testTypeEvent) {
+		fired = true
+	}))
+	dispatcher.Fire(&testTypeEvent{})
 	if !fired {
 		t.Fatal("event not fired")
 	}

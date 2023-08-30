@@ -27,10 +27,12 @@ type listenerFunc[T comparable, E Event[T]] struct {
 	handler   func(E)
 }
 
+// EventType implements Listener EventType method
 func (h listenerFunc[T, E]) EventType() T {
 	return h.eventType
 }
 
+// Handle implements Listener Handle method
 func (h listenerFunc[T, E]) Handle(event Event[T]) {
 	if e, ok := event.(E); ok {
 		h.handler(e)
@@ -57,8 +59,8 @@ func (dispatcher *Dispatcher[T]) SetOrdered(ordered bool) {
 	dispatcher.ordered = ordered
 }
 
-// AddEventListener registers a Listener
-func (dispatcher *Dispatcher[T]) AddEventListener(listener Listener[T]) int {
+// AddListener registers a Listener
+func (dispatcher *Dispatcher[T]) AddListener(listener Listener[T]) int {
 	if dispatcher.listeners == nil {
 		dispatcher.listeners = make(map[T][]pair.Pair[int, Listener[T]])
 		dispatcher.mapping = make(map[int]pair.Pair[T, int])
@@ -73,17 +75,8 @@ func (dispatcher *Dispatcher[T]) AddEventListener(listener Listener[T]) int {
 	return id
 }
 
-// HasEventListener reports whether the Dispatcher has specified listener
-func (dispatcher *Dispatcher[T]) HasEventListener(id int) bool {
-	if dispatcher.mapping == nil {
-		return false
-	}
-	_, ok := dispatcher.mapping[id]
-	return ok
-}
-
-// RemoveEventListener removes specified listener
-func (dispatcher *Dispatcher[T]) RemoveEventListener(id int) bool {
+// RemoveListener removes specified listener
+func (dispatcher *Dispatcher[T]) RemoveListener(id int) bool {
 	if dispatcher.listeners == nil {
 		return false
 	}
@@ -111,8 +104,17 @@ func (dispatcher *Dispatcher[T]) RemoveEventListener(id int) bool {
 	return true
 }
 
-// DispatchEvent dispatchs event
-func (dispatcher *Dispatcher[T]) DispatchEvent(event Event[T]) bool {
+// HasListener reports whether dispatcher has specified listener
+func (dispatcher *Dispatcher[T]) HasListener(id int) bool {
+	if dispatcher.mapping == nil {
+		return false
+	}
+	_, ok := dispatcher.mapping[id]
+	return ok
+}
+
+// Fire fires event
+func (dispatcher *Dispatcher[T]) Fire(event Event[T]) bool {
 	if dispatcher.listeners == nil {
 		return false
 	}
