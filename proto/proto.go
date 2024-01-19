@@ -9,6 +9,8 @@ import (
 	"io"
 	"strconv"
 	"sync"
+
+	"github.com/gopherd/doge/event"
 )
 
 const (
@@ -130,7 +132,6 @@ var (
 //	func init() {
 //		proto.Register("foo", BarType, func() proto.Message { return new(Bar) })
 //	}
-//
 func Register(mod string, typ Type, creator func() Message) {
 	if typ > MaxType {
 		panic(fmt.Sprintf("proto: Register type %d out of range [0, %d]", typ, MaxType))
@@ -361,7 +362,6 @@ func sizeofUvarint(x uint64) int {
 // Encode returns the wire-format encoding of m with type and size.
 //
 //	|type|body.size|body|
-//
 func Encode(m Message, reservedHeadLen int) ([]byte, error) {
 	if m == nil {
 		return nil, nil
@@ -463,4 +463,16 @@ func Decode(buf []byte, arena Arena) (int, Message, error) {
 // The provided message must be mutable (e.g., a non-nil pointer to a message).
 func Unmarshal(buf []byte, m Message) error {
 	return m.Unmarshal(buf)
+}
+
+// Listener aliases event.Listener for Type
+type Listener = event.Listener[Type]
+
+// Dispatcher aliases event.Dispatcher for Type
+type Dispatcher = event.Dispatcher[Type]
+
+// Listen listens message handler
+func Listen[H ~func(M), M Message](h H) Listener {
+	var m M
+	return event.Listen[Type, M](m.Typeof(), h)
 }

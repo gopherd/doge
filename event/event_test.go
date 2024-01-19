@@ -10,7 +10,7 @@ import (
 type testStringEvent struct {
 }
 
-func (e testStringEvent) Type() string {
+func (e testStringEvent) Typeof() string {
 	return "test"
 }
 
@@ -41,7 +41,7 @@ func TestDispatchEventPointer(t *testing.T) {
 type testIntEvent struct {
 }
 
-func (e testIntEvent) Type() int {
+func (e testIntEvent) Typeof() int {
 	return 1
 }
 
@@ -62,7 +62,7 @@ type testTypeEvent struct {
 
 var eventType = reflect.TypeOf((*testTypeEvent)(nil))
 
-func (e *testTypeEvent) Type() reflect.Type {
+func (e *testTypeEvent) Typeof() reflect.Type {
 	return eventType
 }
 

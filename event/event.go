@@ -8,7 +8,7 @@ import (
 
 // Event is the interface that wraps the basic Type method.
 type Event[T comparable] interface {
-	Type() T // Type gets type of event
+	Typeof() T // Type gets type of event
 }
 
 // A Listener handles fired event
@@ -18,26 +18,26 @@ type Listener[T comparable] interface {
 }
 
 // Listen creates a Listener by eventType and handler function
-func Listen[T comparable, E Event[T]](eventType T, handler func(E)) Listener[T] {
-	return listenerFunc[T, E]{eventType, handler}
+func Listen[T comparable, E Event[T], H ~func(E)](eventType T, handler H) Listener[T] {
+	return listenerFunc[T, E, H]{eventType, handler}
 }
 
-type listenerFunc[T comparable, E Event[T]] struct {
+type listenerFunc[T comparable, E Event[T], H ~func(E)] struct {
 	eventType T
-	handler   func(E)
+	handler   H
 }
 
 // EventType implements Listener EventType method
-func (h listenerFunc[T, E]) EventType() T {
+func (h listenerFunc[T, E, H]) EventType() T {
 	return h.eventType
 }
 
 // Handle implements Listener Handle method
-func (h listenerFunc[T, E]) Handle(event Event[T]) {
+func (h listenerFunc[T, E, H]) Handle(event Event[T]) {
 	if e, ok := event.(E); ok {
 		h.handler(e)
 	} else {
-		panic(fmt.Sprintf("unexpected event %T for type %v", event, event.Type()))
+		panic(fmt.Sprintf("unexpected event %T for type %v", event, event.Typeof()))
 	}
 }
 
@@ -118,7 +118,7 @@ func (dispatcher *Dispatcher[T]) Fire(event Event[T]) bool {
 	if dispatcher.listeners == nil {
 		return false
 	}
-	listeners, ok := dispatcher.listeners[event.Type()]
+	listeners, ok := dispatcher.listeners[event.Typeof()]
 	if !ok || len(listeners) == 0 {
 		return false
 	}
