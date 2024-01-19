@@ -13,16 +13,16 @@ type Event[T comparable] interface {
 
 // A Listener handles fired event
 type Listener[T comparable] interface {
-	EventType() T    // EventType gets type of listening event
-	Handle(Event[T]) // Handle handles fired event
+	EventType() T            // EventType gets type of listening event
+	Handle(Event[T], ...any) // Handle handles fired event
 }
 
 // Listen creates a Listener by eventType and handler function
-func Listen[T comparable, E Event[T], H ~func(E)](eventType T, handler H) Listener[T] {
+func Listen[T comparable, E Event[T], H ~func(E, ...any)](eventType T, handler H) Listener[T] {
 	return listenerFunc[T, E, H]{eventType, handler}
 }
 
-type listenerFunc[T comparable, E Event[T], H ~func(E)] struct {
+type listenerFunc[T comparable, E Event[T], H ~func(E, ...any)] struct {
 	eventType T
 	handler   H
 }
@@ -33,9 +33,9 @@ func (h listenerFunc[T, E, H]) EventType() T {
 }
 
 // Handle implements Listener Handle method
-func (h listenerFunc[T, E, H]) Handle(event Event[T]) {
+func (h listenerFunc[T, E, H]) Handle(event Event[T], arguments ...any) {
 	if e, ok := event.(E); ok {
-		h.handler(e)
+		h.handler(e, arguments...)
 	} else {
 		panic(fmt.Sprintf("unexpected event %T for type %v", event, event.Typeof()))
 	}
@@ -114,7 +114,7 @@ func (dispatcher *Dispatcher[T]) HasListener(id int) bool {
 }
 
 // Fire fires event
-func (dispatcher *Dispatcher[T]) Fire(event Event[T]) bool {
+func (dispatcher *Dispatcher[T]) Fire(event Event[T], arguments ...any) bool {
 	if dispatcher.listeners == nil {
 		return false
 	}
@@ -123,7 +123,7 @@ func (dispatcher *Dispatcher[T]) Fire(event Event[T]) bool {
 		return false
 	}
 	for i := range listeners {
-		listeners[i].Second.Handle(event)
+		listeners[i].Second.Handle(event, arguments...)
 	}
 	return true
 }
