@@ -514,7 +514,7 @@ func (s *Session) readCommand() error {
 	if len(s.command.Request.Elements()) == 0 {
 		return resp.ErrNumberOfArguments
 	}
-	log.Debug().Any("command", s.command.Request).Print("read a command")
+	log.Debug().String("name", s.command.Name()).Print("read a command")
 	return nil
 }
 
@@ -527,19 +527,19 @@ func (s *Session) readCommand() error {
 //
 // example:
 //
-//  $ telnet 127.0.0.1 11001
-//  Trying 127.0.0.1...
-//  Connected to localhost.
-//  Escape character is '^]'.
-//  +hello 1
-//  +hello 1
+//	$ telnet 127.0.0.1 11001
+//	Trying 127.0.0.1...
+//	Connected to localhost.
+//	Escape character is '^]'.
+//	+hello 1
+//	+hello 1
 //
-//  $ telnet 127.0.0.1 11001
-//  Trying 127.0.0.1...
-//  Connected to localhost.
-//  Escape character is '^]'.
-//  +hello
-//  -not handshaked
+//	$ telnet 127.0.0.1 11001
+//	Trying 127.0.0.1...
+//	Connected to localhost.
+//	Escape character is '^]'.
+//	+hello
+//	-not handshaked
 func (s *Session) handshake(typ proto.Type) error {
 	if err := s.readCommand(); err != nil {
 		return err
