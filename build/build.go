@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	name, version, branch, hash, datetime string
+	name, version, branch, commit, datetime string
 )
 
 func Name() string {
@@ -24,7 +24,7 @@ func Name() string {
 }
 
 func Version() string {
-	return fmt.Sprintf("%s %s(%s: %s) built at %s by %s", Name(), version, branch, hash, datetime, runtime.Version())
+	return fmt.Sprintf("%s %s(%s: %s) built at %s by %s", Name(), version, branch, commit, datetime, runtime.Version())
 }
 
 func Print() {
