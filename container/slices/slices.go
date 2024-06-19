@@ -335,3 +335,11 @@ func Clone[S ~[]T, T any](s S) S {
 	copy(d, s)
 	return d
 }
+
+func Repeat[T any](n int, x T) []T {
+	s := make([]T, n)
+	for i := 0; i < n; i++ {
+		s[i] = x
+	}
+	return s
+}

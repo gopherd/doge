@@ -38,23 +38,6 @@ type Scheduler interface {
 	Remove(id ID)
 }
 
-type group struct {
-	next   int64
-	timers []timer
-}
-
-func (g *group) remove(id ID) bool {
-	n := len(g.timers)
-	for i := 0; i < n; i++ {
-		if g.timers[i].id == id {
-			copy(g.timers[i:n-1], g.timers[i+1:])
-			g.timers = g.timers[:n-1]
-			return true
-		}
-	}
-	return false
-}
-
 type timer struct {
 	id       ID
 	task     Task
@@ -63,11 +46,29 @@ type timer struct {
 	duration int64
 }
 
+type timers struct {
+	next   int64
+	timers []timer
+}
+
+func (ts *timers) remove(id ID) bool {
+	n := len(ts.timers)
+	for i := 0; i < n; i++ {
+		if ts.timers[i].id == id {
+			copy(ts.timers[i:n-1], ts.timers[i+1:])
+			ts.timers[n-1] = timer{}
+			ts.timers = ts.timers[:n-1]
+			return true
+		}
+	}
+	return false
+}
+
 // memoryScheduler implements Scheduler in memory
 type memoryScheduler struct {
-	groups  []group
-	indices map[int64]int // next => indexof(groups)
-	timers  map[ID]int64  // id => next
+	alltimers []timers
+	indices   map[int64]int // next => indexof(groups)
+	timers    map[ID]int64  // id => next
 
 	addChan   chan timer
 	closeChan chan struct{}
@@ -129,7 +130,7 @@ func (s *memoryScheduler) schedule() {
 	var timer *time.Timer
 	var timerExpired bool
 	for {
-		if len(s.groups) == 0 {
+		if len(s.alltimers) == 0 {
 			select {
 			case x := <-s.addChan:
 				if x.id < 0 {
@@ -143,7 +144,7 @@ func (s *memoryScheduler) schedule() {
 		}
 		now := time.Duration(time.Now().UnixNano()/1000000) * time.Millisecond
 
-		first := heap.Pop(s).(group)
+		first := heap.Pop(s).(timers)
 		next := first.next
 		dt := time.Duration(next)*time.Millisecond - now
 
@@ -241,9 +242,9 @@ func (s *memoryScheduler) Remove(id ID) {
 func (s *memoryScheduler) addTimer(x timer) {
 	s.timers[x.id] = x.next
 	if i, ok := s.indices[x.next]; ok {
-		s.groups[i].timers = append(s.groups[i].timers, x)
+		s.alltimers[i].timers = append(s.alltimers[i].timers, x)
 	} else {
-		g := group{
+		g := timers{
 			next:   x.next,
 			timers: make([]timer, 0, 8),
 		}
@@ -268,14 +269,14 @@ func (s *memoryScheduler) removeTimerByNext(id ID, next int64) {
 		return
 	}
 
-	if s.groups[i].remove(id) {
-		if len(s.groups[i].timers) == 0 {
+	if s.alltimers[i].remove(id) {
+		if len(s.alltimers[i].timers) == 0 {
 			heap.Remove(s, i)
 		}
 	}
 }
 
-func (s *memoryScheduler) execGroup(g group) {
+func (s *memoryScheduler) execGroup(g timers) {
 	n := 0
 	for i := range g.timers {
 		g.timers[i].task.ExecTimer(g.timers[i].id)
@@ -299,31 +300,31 @@ func (s *memoryScheduler) execGroup(g group) {
 }
 
 // Len implements heap.Interface Len method
-func (s *memoryScheduler) Len() int { return len(s.groups) }
+func (s *memoryScheduler) Len() int { return len(s.alltimers) }
 
 // Less implements heap.Interface Less method
-func (s *memoryScheduler) Less(i, j int) bool { return s.groups[i].next < s.groups[j].next }
+func (s *memoryScheduler) Less(i, j int) bool { return s.alltimers[i].next < s.alltimers[j].next }
 
 // Swap implements heap.Interface Swap method
 func (s *memoryScheduler) Swap(i, j int) {
-	s.groups[i], s.groups[j] = s.groups[j], s.groups[i]
-	s.indices[s.groups[i].next] = i
-	s.indices[s.groups[j].next] = j
+	s.alltimers[i], s.alltimers[j] = s.alltimers[j], s.alltimers[i]
+	s.indices[s.alltimers[i].next] = i
+	s.indices[s.alltimers[j].next] = j
 }
 
 // Push implements heap.Interface Push method
 func (s *memoryScheduler) Push(x any) {
-	g := x.(group)
-	l := len(s.groups)
-	s.groups = append(s.groups, g)
+	g := x.(timers)
+	l := len(s.alltimers)
+	s.alltimers = append(s.alltimers, g)
 	s.indices[g.next] = l
 }
 
 // Pop implements heap.Interface Pop method
 func (s *memoryScheduler) Pop() any {
-	l := len(s.groups)
-	x := s.groups[l-1]
-	s.groups = s.groups[:l-1]
+	l := len(s.alltimers)
+	x := s.alltimers[l-1]
+	s.alltimers = s.alltimers[:l-1]
 	delete(s.indices, x.next)
 	return x
 }

@@ -19,10 +19,10 @@ func editDistance(s, t string) (float32, int, int) {
 		n int
 		d []float32
 	)
-	for _ = range s {
+	for range s {
 		m++
 	}
-	for _ = range t {
+	for range t {
 		n++
 	}
 	d = make([]float32, (m+1)*(n+1))

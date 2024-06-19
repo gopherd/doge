@@ -89,7 +89,7 @@ func ParseInLocation(value string, loc *time.Location) (time.Time, error) {
 
 func parse(value string, loc *time.Location) (time.Time, error) {
 	for _, layout := range layouts {
-		t, err := time.Parse(layout, value)
+		t, err := time.ParseInLocation(layout, value, loc)
 		if err == nil {
 			return t, nil
 		}
